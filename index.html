@@ -425,19 +425,34 @@
             }
 
             initializeEventListeners() {
+                console.log('Initialisation des événements...');
                 const searchInput = document.getElementById('playerSearch');
                 const searchBtn = document.getElementById('searchBtn');
                 const clientIdInput = document.getElementById('clientId');
                 const clientSecretInput = document.getElementById('clientSecret');
                 const authorizeBtn = document.getElementById('authorizeBtn');
+            
+                // Vérifier que tous les éléments sont trouvés
+                if (!searchInput || !searchBtn || !clientIdInput || !clientSecretInput || !authorizeBtn) {
+                    console.error('Certains éléments HTML n\'ont pas été trouvés:', {
+                        searchInput: !!searchInput,
+                        searchBtn: !!searchBtn,
+                        clientIdInput: !!clientIdInput,
+                        clientSecretInput: !!clientSecretInput,
+                        authorizeBtn: !!authorizeBtn
+                    });
+                    return;
+                }
                 
                 searchInput.addEventListener('keypress', (e) => {
+                    console.log('Touche pressée dans la recherche');
                     if (e.key === 'Enter' && this.isAuthenticated()) {
                         this.searchPlayer(e.target.value);
                     }
                 });
             
                 searchBtn.addEventListener('click', () => {
+                    console.log('Bouton de recherche cliqué');
                     if (this.isAuthenticated()) {
                         this.searchPlayer(searchInput.value);
                     } else {
@@ -446,18 +461,23 @@
                 });
             
                 clientIdInput.addEventListener('input', (e) => {
+                    console.log('Client ID modifié');
                     this.clientId = e.target.value;
                     this.saveCredentials();
                 });
             
                 clientSecretInput.addEventListener('input', (e) => {
+                    console.log('Client Secret modifié');
                     this.clientSecret = e.target.value;
                     this.saveCredentials();
                 });
             
                 authorizeBtn.addEventListener('click', () => {
+                    console.log('Bouton d\'autorisation cliqué');
                     this.validateCredentials();
                 });
+            
+                console.log('Événements initialisés avec succès');
             }
 
             loadSavedCredentials() {
@@ -483,23 +503,30 @@
             }
 
             saveCredentials() {
+                console.log('Sauvegarde des credentials...');
                 const credentials = {
                     clientId: this.clientId,
                     clientSecret: this.clientSecret,
                     accessToken: this.accessToken,
-                    refreshToken: this.refreshToken,
                     tokenExpiry: this.tokenExpiry
                 };
                 
-                sessionStorage.setItem('osu_credentials', JSON.stringify(credentials));
+                try {
+                    sessionStorage.setItem('osu_credentials', JSON.stringify(credentials));
+                    console.log('Credentials sauvegardés avec succès');
+                } catch (error) {
+                    console.error('Erreur lors de la sauvegarde des credentials:', error);
+                }
             }
 
             async validateCredentials() {
+                console.log('Tentative de validation des credentials...');
                 if (!this.clientId || !this.clientSecret) {
                     this.showAuthStatus('Veuillez entrer votre Client ID et Client Secret.', 'error');
                     return;
                 }
             
+                console.log('Credentials présents, tentative de connexion à l\'API...');
                 try {
                     const tokenData = {
                         client_id: this.clientId,
@@ -508,26 +535,24 @@
                         scope: 'public'
                     };
             
+                    console.log('Envoi de la requête d\'authentification...');
                     const response = await fetch(`${this.authBaseUrl}/token`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                            // Ajout des headers CORS
-                            'Access-Control-Allow-Origin': '*',
-                            'Access-Control-Allow-Methods': 'POST',
-                            'Access-Control-Allow-Headers': 'Content-Type'
+                            'Accept': 'application/json'
                         },
-                        mode: 'cors', // Explicitement définir le mode CORS
                         body: JSON.stringify(tokenData)
                     });
             
+                    console.log('Réponse reçue:', response.status);
                     if (!response.ok) {
                         const errorData = await response.json().catch(() => ({}));
                         throw new Error(errorData.error_description || `Erreur HTTP: ${response.status}`);
                     }
             
                     const tokenResponse = await response.json();
+                    console.log('Token obtenu avec succès!');
                     
                     this.accessToken = tokenResponse.access_token;
                     this.tokenExpiry = Date.now() + (tokenResponse.expires_in * 1000);
@@ -536,13 +561,12 @@
                     this.showAuthStatus('✅ Authentification réussie!', 'success');
                     this.updateSearchButtonState();
                 } catch (error) {
-                    // Amélioration de la gestion des erreurs
+                    console.error('Erreur complète:', error);
                     let errorMessage = error.message;
                     if (error.message.includes('NetworkError')) {
                         errorMessage = 'Erreur de connexion à l\'API osu!. Vérifiez votre connexion internet et vos identifiants.';
                     }
                     this.showAuthStatus(`Erreur d'authentification: ${errorMessage}`, 'error');
-                    console.error('Détails de l\'erreur:', error);
                 }
             }
 
@@ -730,7 +754,13 @@
             }
 
             isAuthenticated() {
-                return this.accessToken && this.tokenExpiry > Date.now();
+                const isValid = this.accessToken && this.tokenExpiry > Date.now();
+                console.log('État d\'authentification:', isValid, {
+                    hasToken: !!this.accessToken,
+                    tokenExpiry: this.tokenExpiry,
+                    now: Date.now()
+                });
+                return isValid;
             }
 
             updateSearchButtonState() {
@@ -749,6 +779,13 @@
             }
 
             async searchPlayer(username) {
+                console.log('Tentative de recherche du joueur:', username);
+                if (!this.isAuthenticated()) {
+                    console.log('Non authentifié, impossible de rechercher');
+                    this.showAuthStatus('Veuillez vous connecter d\'abord.', 'error');
+                    return;
+                }
+            
                 if (!username.trim()) {
                     this.showError('Veuillez entrer un nom de joueur.');
                     return;
@@ -757,19 +794,21 @@
                 this.showLoading('Recherche en cours...');
                 
                 try {
+                    console.log('Envoi de la requête API pour le joueur');
                     const mainPlayer = await this.makeApiRequest(`/users/${encodeURIComponent(username)}/osu`);
                     
                     if (!mainPlayer || !mainPlayer.statistics) {
                         throw new Error('Joueur non trouvé ou données incomplètes.');
                     }
-
+            
+                    console.log('Données du joueur reçues:', mainPlayer);
                     this.currentPlayer = mainPlayer;
                     await this.displayRanking(mainPlayer);
                     this.startLiveUpdates();
                     
                 } catch (error) {
-                    this.showError(error.message);
                     console.error('Erreur lors de la recherche:', error);
+                    this.showError(error.message);
                 }
             }
 
