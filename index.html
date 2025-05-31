@@ -88,44 +88,39 @@
 
         .player-card {
             width: 450px;
-            height: 80px;
+            height: 100px; /* Augmenté de 80px à 100px */
             display: flex;
             align-items: center;
             border-radius: 12px;
-            padding: 15px 20px;
-            margin: 2px 0;
+            padding: 20px 25px; /* Augmenté le padding */
+            margin: 3px 0; /* Augmenté la marge */
             position: relative;
             transition: all 0.5s ease;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
 
+        /* Ajuster les tailles des cartes secondaires */
         .player-card.rank-above-2 {
-            background: linear-gradient(135deg, #e8e8e8, #d0d0d0);
-            color: #888;
             width: 400px;
+            height: 90px;
             transform: scale(0.9);
         }
-
+        
         .player-card.rank-above-1 {
-            background: linear-gradient(135deg, #90c695, #72b577);
-            color: white;
             width: 425px;
+            height: 95px;
             transform: scale(0.95);
         }
-
+        
         .player-card.main {
-            background: linear-gradient(135deg, #4a90e2, #357abd);
-            color: white;
             width: 450px;
+            height: 100px;
             transform: scale(1);
-            border: 3px solid #2c5aa0;
-            z-index: 10;
         }
 
         .player-card.rank-below {
-            background: linear-gradient(135deg, #d4a574, #c49660);
-            color: white;
             width: 425px;
+            height: 95px;
             transform: scale(0.95);
         }
 
@@ -135,8 +130,8 @@
         }
 
         .player-avatar {
-            width: 50px;
-            height: 50px;
+            width: 60px; /* Augmenté de 50px à 60px */
+            height: 60px;
             border-radius: 8px;
             background: #ccc;
             display: flex;
@@ -185,13 +180,13 @@
         .player-name {
             font-size: 18px;
             font-weight: 600;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
         }
 
         .player-score {
-            font-size: 14px;
+            font-size: 15px;
             opacity: 0.9;
-            margin-bottom: 2px;
+            margin-bottom: 4px;
         }
 
         .player-rank {
@@ -222,9 +217,9 @@
         }
 
         .recent-activity {
-            font-size: 12px;
+            font-size: 13px;
             opacity: 0.8;
-            margin-top: 2px;
+            margin-top: 4px;
         }
 
         .score-animation {
@@ -710,46 +705,68 @@
                 if (!currentRank) {
                     throw new Error('Le joueur n\'a pas de rang global.');
                 }
-
+            
                 try {
-                    const rankingData = await this.makeApiRequest(`/rankings/osu/performance?cursor[page]=${Math.max(1, Math.floor(currentRank / 50))}`);
+                    // Changement de l'endpoint pour utiliser le classement par score
+                    const rankingData = await this.makeApiRequest(`/rankings/osu/score?cursor[page]=${Math.max(1, Math.floor(currentRank / 50))}`);
                     this.playerData = this.createPlayerList(mainPlayer, rankingData.ranking, currentRank);
                     this.renderPlayerCards();
                     
                 } catch (error) {
                     console.error('Erreur lors de la récupération du classement:', error);
                     this.playerData = [
-                        this.createFallbackPlayer(currentRank - 2),
-                        this.createFallbackPlayer(currentRank - 1),
+                        this.createFallbackPlayer(Math.min(Math.max(1, currentRank - 2), 9999)),
+                        this.createFallbackPlayer(Math.min(Math.max(1, currentRank - 1), 9999)),
                         mainPlayer,
-                        this.createFallbackPlayer(currentRank + 1)
+                        this.createFallbackPlayer(Math.min(currentRank + 1, 10000))
                     ];
                     this.renderPlayerCards();
                 }
             }
 
-            createPlayerList(mainPlayer, rankingList, currentRank) {
+            async createPlayerList(mainPlayer, rankingList, currentRank) {
                 const players = [];
-                const mainPlayerIndex = rankingList.findIndex(p => p.user.id === mainPlayer.id);
-                
-                if (mainPlayerIndex !== -1) {
-                    for (let i = Math.max(0, mainPlayerIndex - 2); i <= Math.min(rankingList.length - 1, mainPlayerIndex + 1); i++) {
-                        if (rankingList[i]) {
-                            players.push({
-                                ...rankingList[i].user,
-                                statistics: {
-                                    ...rankingList[i].user.statistics,
-                                    global_rank: rankingList[i].user.statistics.global_rank
-                                }
-                            });
+                try {
+                    // Si on est dans le top 3, adapter la logique
+                    if (currentRank <= 3) {
+                        for (let i = 1; i <= 4; i++) {
+                            if (i === currentRank) {
+                                players.push(mainPlayer);
+                            } else {
+                                const playerData = await this.makeApiRequest(`/users/${rankingList[i-1].user.id}/osu`);
+                                players.push(playerData);
+                            }
+                        }
+                    } 
+                    // Si on est dans les derniers rangs
+                    else if (currentRank >= 9998) {
+                        for (let i = 9997; i <= 10000; i++) {
+                            if (i === currentRank) {
+                                players.push(mainPlayer);
+                            } else {
+                                const playerData = await this.makeApiRequest(`/users/${rankingList[i-9997].user.id}/osu`);
+                                players.push(playerData);
+                            }
                         }
                     }
-                } else {
+                    // Cas normal
+                    else {
+                        for (let i = currentRank-2; i <= currentRank+1; i++) {
+                            if (i === currentRank) {
+                                players.push(mainPlayer);
+                            } else {
+                                const playerData = await this.makeApiRequest(`/users/${rankingList[i-1].user.id}/osu`);
+                                players.push(playerData);
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Erreur lors de la récupération des joueurs:', error);
                     players.push(
-                        this.createFallbackPlayer(currentRank - 2),
-                        this.createFallbackPlayer(currentRank - 1),
+                        this.createFallbackPlayer(Math.max(1, currentRank - 2)),
+                        this.createFallbackPlayer(Math.max(1, currentRank - 1)),
                         mainPlayer,
-                        this.createFallbackPlayer(currentRank + 1)
+                        this.createFallbackPlayer(Math.min(currentRank + 1, 10000))
                     );
                 }
                 
@@ -757,14 +774,16 @@
             }
 
             createFallbackPlayer(rank) {
+                // Assurer que le rang est entre 1 et 10000
+                const safeRank = Math.min(Math.max(1, rank), 10000);
                 return {
                     id: Math.floor(Math.random() * 10000000),
-                    username: `Joueur #${rank}`,
+                    username: `Joueur #${safeRank}`,
                     avatar_url: null,
                     country: { code: 'XX', name: 'Inconnu' },
                     statistics: {
                         ranked_score: Math.floor(Math.random() * 50000000000),
-                        global_rank: rank,
+                        global_rank: safeRank,
                         pp: Math.floor(Math.random() * 10000),
                         last_visit: new Date(Date.now() - Math.random() * 7200000).toISOString()
                     }
