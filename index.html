@@ -375,11 +375,7 @@
             <div class="api-setup" id="setupSection">
                 <h3>🔑 Configuration API osu!</h3>
                 <p><strong>Étape 1:</strong> Allez sur <a href="https://osu.ppy.sh/home/account/edit#oauth" target="_blank">osu.ppy.sh/home/account/edit#oauth</a></p>
-                <p><strong>Étape 2:</strong> Créez une nouvelle application OAuth avec ces paramètres :</p>
-                <ul style="margin-left: 20px; margin-top: 5px;">
-                    <li>Application Callback URL: <code id="callbackUrl">http://localhost</code></li>
-                    <li>Nom de l'application: votre choix</li>
-                </ul>
+                <p><strong>Étape 2:</strong> Créez une nouvelle application OAuth et récupérez les informations suivantes:</p>
                 <div style="display: flex; gap: 10px; margin-top: 15px;">
                     <div style="flex: 1;">
                         <label>Client ID:</label>
@@ -390,10 +386,9 @@
                         <input type="password" id="clientSecret" class="api-input" placeholder="Votre Client Secret">
                     </div>
                 </div>
-                <button id="authorizeBtn" class="auth-button">🔐 Autoriser l'accès à osu!</button>
+                <button id="authorizeBtn" class="auth-button">🔐 Connecter à osu!</button>
                 <div id="authStatus" class="auth-status hidden"></div>
             </div>
-            
             <div class="search-container">
                 <input type="text" id="playerSearch" class="search-input" placeholder="Nom du joueur osu!">
                 <button id="searchBtn" class="search-btn">🔍 Rechercher</button>
@@ -417,7 +412,6 @@
                 this.clientId = '';
                 this.clientSecret = '';
                 this.accessToken = '';
-                this.refreshToken = '';
                 this.tokenExpiry = 0;
                 this.currentPlayer = null;
                 this.playerData = [];
@@ -425,16 +419,9 @@
                 this.lastScores = new Map();
                 this.apiBase = 'https://osu.ppy.sh/api/v2';
                 this.authBaseUrl = 'https://osu.ppy.sh/oauth';
-                this.redirectUri = 'https://www.byoo.zip/osu-live-score/';
                 
                 this.initializeEventListeners();
                 this.loadSavedCredentials();
-                this.handleOAuthCallback();
-                this.updateCallbackUrl();
-            }
-
-            updateCallbackUrl() {
-                document.getElementById('callbackUrl').textContent = this.redirectUri;
             }
 
             initializeEventListeners() {
@@ -449,27 +436,27 @@
                         this.searchPlayer(e.target.value);
                     }
                 });
-
+            
                 searchBtn.addEventListener('click', () => {
                     if (this.isAuthenticated()) {
                         this.searchPlayer(searchInput.value);
                     } else {
-                        this.showAuthStatus('Veuillez d\'abord vous authentifier.', 'error');
+                        this.showAuthStatus('Veuillez d\'abord vous connecter.', 'error');
                     }
                 });
-
+            
                 clientIdInput.addEventListener('input', (e) => {
                     this.clientId = e.target.value;
                     this.saveCredentials();
                 });
-
+            
                 clientSecretInput.addEventListener('input', (e) => {
                     this.clientSecret = e.target.value;
                     this.saveCredentials();
                 });
-
+            
                 authorizeBtn.addEventListener('click', () => {
-                    this.startOAuthFlow();
+                    this.validateCredentials();
                 });
             }
 
@@ -507,54 +494,45 @@
                 sessionStorage.setItem('osu_credentials', JSON.stringify(credentials));
             }
 
-            startOAuthFlow() {
+            async validateCredentials() {
                 if (!this.clientId || !this.clientSecret) {
                     this.showAuthStatus('Veuillez entrer votre Client ID et Client Secret.', 'error');
                     return;
                 }
-
-                const state = this.generateRandomString(32);
-                sessionStorage.setItem('oauth_state', state);
-
-                const authUrl = new URL(`${this.authBaseUrl}/authorize`);
-                authUrl.searchParams.set('client_id', this.clientId);
-                authUrl.searchParams.set('redirect_uri', this.redirectUri);
-                authUrl.searchParams.set('response_type', 'code');
-                authUrl.searchParams.set('scope', 'public');
-                authUrl.searchParams.set('state', state);
-
-                window.location.href = authUrl.toString();
-            }
-
-            async handleOAuthCallback() {
-                const urlParams = new URLSearchParams(window.location.search);
-                const code = urlParams.get('code');
-                const state = urlParams.get('state');
-                const error = urlParams.get('error');
-
-                if (error) {
-                    this.showAuthStatus(`Erreur d'autorisation: ${error}`, 'error');
-                    this.clearUrl();
-                    return;
-                }
-
-                if (code && state) {
-                    const savedState = sessionStorage.getItem('oauth_state');
-                    if (state !== savedState) {
-                        this.showAuthStatus('Erreur de sécurité: état invalide', 'error');
-                        this.clearUrl();
-                        return;
+            
+                try {
+                    const tokenData = {
+                        client_id: this.clientId,
+                        client_secret: this.clientSecret,
+                        grant_type: 'client_credentials',
+                        scope: 'public'
+                    };
+            
+                    const response = await fetch(`${this.authBaseUrl}/token`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify(tokenData)
+                    });
+            
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error_description || 'Erreur d\'authentification');
                     }
-
-                    try {
-                        await this.exchangeCodeForToken(code);
-                        this.showAuthStatus('✅ Authentification réussie!', 'success');
-                        this.updateSearchButtonState();
-                    } catch (error) {
-                        this.showAuthStatus(`Erreur d'authentification: ${error.message}`, 'error');
-                    }
+            
+                    const tokenResponse = await response.json();
                     
-                    this.clearUrl();
+                    this.accessToken = tokenResponse.access_token;
+                    this.tokenExpiry = Date.now() + (tokenResponse.expires_in * 1000);
+                    
+                    this.saveCredentials();
+                    this.showAuthStatus('✅ Authentification réussie!', 'success');
+                    this.updateSearchButtonState();
+                } catch (error) {
+                    this.showAuthStatus(`Erreur d'authentification: ${error.message}`, 'error');
+                    console.error('Erreur d\'authentification:', error);
                 }
             }
 
@@ -966,22 +944,6 @@
                 }
             }
 
-            clearUrl() {
-                const url = new URL(window.location);
-                url.searchParams.delete('code');
-                url.searchParams.delete('state');
-                url.searchParams.delete('error');
-                window.history.replaceState({}, document.title, url.toString());
-            }
-
-            generateRandomString(length) {
-                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-                let result = '';
-                for (let i = 0; i < length; i++) {
-                    result += chars.charAt(Math.floor(Math.random() * chars.length));
-                }
-                return result;
-            }
         }
 
         // Initialiser l'application
