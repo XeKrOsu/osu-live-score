@@ -417,8 +417,9 @@
                 this.playerData = [];
                 this.updateInterval = null;
                 this.lastScores = new Map();
-                this.apiBase = 'https://osu.ppy.sh/api/v2';
-                this.authBaseUrl = 'https://osu.ppy.sh/oauth';
+                this.corsProxy = 'https://cors-anywhere.herokuapp.com/';
+                this.apiBase = this.corsProxy + 'https://osu.ppy.sh/api/v2';
+                this.authBaseUrl = this.corsProxy + 'https://osu.ppy.sh/oauth';
                 
                 this.initializeEventListeners();
                 this.loadSavedCredentials();
@@ -529,11 +530,12 @@
                     };
             
                     console.log('Envoi de la requête de token');
-                    const response = await fetch(`${this.authBaseUrl}/token`, {
+                    const response = await fetch(this.authBaseUrl + '/token', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Accept': 'application/json'
+                            'Accept': 'application/json',
+                            'Origin': window.location.origin
                         },
                         body: JSON.stringify(tokenData)
                     });
@@ -584,12 +586,12 @@
             
                 try {
                     console.log('Envoi de la requête API...');
-                    const url = this.apiBase + endpoint;
-                    const response = await fetch(url, {
+                    const response = await fetch(this.apiBase + endpoint, {
                         headers: {
                             'Authorization': 'Bearer ' + this.accessToken,
                             'Content-Type': 'application/json',
-                            'Accept': 'application/json'
+                            'Accept': 'application/json',
+                            'Origin': window.location.origin
                         }
                     });
             
