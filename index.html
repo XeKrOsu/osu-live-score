@@ -643,34 +643,6 @@
                 }
             }
 
-                const response = await fetch(`${this.apiBase}${endpoint}`, {
-                    headers: {
-                        'Authorization': `Bearer ${this.accessToken}`,
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    }
-                });
-
-                if (!response.ok) {
-                    if (response.status === 401) {
-                        // Token invalide, essayer de le renouveler
-                        try {
-                            await this.refreshAccessToken();
-                            // Réessayer la requête
-                            return this.makeApiRequest(endpoint);
-                        } catch (refreshError) {
-                            throw new Error('Session expirée. Veuillez vous reconnecter.');
-                        }
-                    } else if (response.status === 404) {
-                        throw new Error('Joueur non trouvé.');
-                    } else {
-                        throw new Error(`Erreur API: ${response.status} - ${response.statusText}`);
-                    }
-                }
-
-                return await response.json();
-            }
-
             isAuthenticated() {
                 const isValid = this.accessToken && this.tokenExpiry > Date.now();
                 console.log('État d\'authentification:', isValid, {
