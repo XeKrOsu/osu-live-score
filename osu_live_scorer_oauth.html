@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Osu! Live Scorer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f0f0;
+            min-height: 100vh;
+            color: #333;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .title {
+            font-size: 4rem;
+            font-weight: 300;
+            color: #ff69b4;
+            margin-bottom: 30px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .search-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 50px;
+            gap: 10px;
+        }
+
+        .search-input {
+            padding: 15px 20px;
+            font-size: 18px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            width: 350px;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .search-input:focus {
+            border-color: #ff69b4;
+        }
+
+        .search-btn {
+            padding: 15px 25px;
+            background: #ff69b4;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .search-btn:hover {
+            background: #ff1493;
+        }
+
+        .search-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .ranking-display {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0;
+        }
+
+        .player-card {
+            width: 450px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            border-radius: 12px;
+            padding: 15px 20px;
+            margin: 2px 0;
+            position: relative;
+            transition: all 0.5s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .player-card.rank-above-2 {
+            background: linear-gradient(135deg, #e8e8e8, #d0d0d0);
+            color: #888;
+            width: 400px;
+            transform: scale(0.9);
+        }
+
+        .player-card.rank-above-1 {
+            background: linear-gradient(135deg, #90c695, #72b577);
+            color: white;
+            width: 425px;
+            transform: scale(0.95);
+        }
+
+        .player-card.main {
+            background: linear-gradient(135deg, #4a90e2, #357abd);
+            color: white;
+            width: 450px;
+            transform: scale(1);
+            border: 3px solid #2c5aa0;
+            z-index: 10;
+        }
+
+        .player-card.rank-below {
+            background: linear-gradient(135deg, #d4a574, #c49660);
+            color: white;
+            width: 425px;
+            transform: scale(0.95);
+        }
+
+        .avatar-container {
+            position: relative;
+            margin-right: 15px;
+        }
+
+        .player-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 8px;
+            background: #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #666;
+            overflow: hidden;
+        }
+
+        .player-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+
+        .status-online {
+            background: #4caf50;
+            animation: pulse 2s infinite;
+        }
+
+        .status-offline {
+            background: #f44336;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .player-info {
+            flex: 1;
+        }
+
+        .player-name {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .player-score {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 2px;
+        }
+
+        .player-rank {
+            font-size: 32px;
+            font-weight: 700;
+            text-align: right;
+            min-width: 100px;
+        }
+
+        .score-difference {
+            text-align: center;
+            font-size: 16px;
+            font-weight: 600;
+            color: #666;
+            margin: 10px 0;
+            padding: 5px 10px;
+            background: rgba(255,255,255,0.8);
+            border-radius: 20px;
+            display: inline-block;
+        }
+
+        .score-difference.positive {
+            color: #4caf50;
+        }
+
+        .score-difference.negative {
+            color: #f44336;
+        }
+
+        .recent-activity {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+
+        .score-animation {
+            position: absolute;
+            top: -30px;
+            right: 20px;
+            background: #4caf50;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 14px;
+            font-weight: 600;
+            animation: scoreGain 3s ease-out forwards;
+            z-index: 100;
+        }
+
+        @keyframes scoreGain {
+            0% {
+                opacity: 0;
+                transform: translateY(15px) scale(0.8);
+            }
+            20% {
+                opacity: 1;
+                transform: translateY(-10px) scale(1.1);
+            }
+            80% {
+                opacity: 1;
+                transform: translateY(-20px) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-30px) scale(0.9);
+            }
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 18px;
+            color: #666;
+        }
+
+        .error {
+            text-align: center;
+            padding: 20px;
+            background: #ffebee;
+            border-radius: 8px;
+            color: #c62828;
+            margin: 20px 0;
+        }
+
+        .api-setup {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            color: #856404;
+        }
+
+        .api-setup h3 {
+            margin-bottom: 10px;
+            color: #856404;
+        }
+
+        .api-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+
+        .auth-button {
+            background: #ff69b4;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: background-color 0.3s ease;
+        }
+
+        .auth-button:hover {
+            background: #ff1493;
+        }
+
+        .auth-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .auth-status {
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+
+        .auth-status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .auth-status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .refresh-info {
+            text-align: center;
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            color: #666;
+        }
+
+        .country-flag {
+            width: 20px;
+            height: 15px;
+            margin-right: 8px;
+            border-radius: 2px;
+            vertical-align: middle;
+        }
+
+        .pp-info {
+            font-size: 13px;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">osu! live scorer</h1>
+            
+            <div class="api-setup" id="setupSection">
+                <h3>🔑 Configuration API osu!</h3>
+                <p><strong>Étape 1:</strong> Allez sur <a href="https://osu.ppy.sh/home/account/edit#oauth" target="_blank">osu.ppy.sh/home/account/edit#oauth</a></p>
+                <p><strong>Étape 2:</strong> Créez une nouvelle application OAuth avec ces paramètres :</p>
+                <ul style="margin-left: 20px; margin-top: 5px;">
+                    <li>Application Callback URL: <code id="callbackUrl">http://localhost</code></li>
+                    <li>Nom de l'application: votre choix</li>
+                </ul>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <div style="flex: 1;">
+                        <label>Client ID:</label>
+                        <input type="text" id="clientId" class="api-input" placeholder="Votre Client ID">
+                    </div>
+                    <div style="flex: 1;">
+                        <label>Client Secret:</label>
+                        <input type="password" id="clientSecret" class="api-input" placeholder="Votre Client Secret">
+                    </div>
+                </div>
+                <button id="authorizeBtn" class="auth-button">🔐 Autoriser l'accès à osu!</button>
+                <div id="authStatus" class="auth-status hidden"></div>
+            </div>
+            
+            <div class="search-container">
+                <input type="text" id="playerSearch" class="search-input" placeholder="Nom du joueur osu!">
+                <button id="searchBtn" class="search-btn">🔍 Rechercher</button>
+            </div>
+        </div>
+
+        <div id="rankingDisplay" class="ranking-display">
+            <div class="loading">
+                👋 Configurez l'API et entrez un nom de joueur pour commencer !
+            </div>
+        </div>
+
+        <div class="refresh-info">
+            <p>🔄 Les données se mettent à jour automatiquement toutes les 30 secondes</p>
+        </div>
+    </div>
+
+    <script>
+        class OsuScoreTracker {
+            constructor() {
+                this.clientId = '';
+                this.clientSecret = '';
+                this.accessToken = '';
+                this.refreshToken = '';
+                this.tokenExpiry = 0;
+                this.currentPlayer = null;
+                this.playerData = [];
+                this.updateInterval = null;
+                this.lastScores = new Map();
+                this.apiBase = 'https://osu.ppy.sh/api/v2';
+                this.authBaseUrl = 'https://osu.ppy.sh/oauth';
+                this.redirectUri = window.location.origin + window.location.pathname;
+                
+                this.initializeEventListeners();
+                this.loadSavedCredentials();
+                this.handleOAuthCallback();
+                this.updateCallbackUrl();
+            }
+
+            updateCallbackUrl() {
+                document.getElementById('callbackUrl').textContent = this.redirectUri;
+            }
+
+            initializeEventListeners() {
+                const searchInput = document.getElementById('playerSearch');
+                const searchBtn = document.getElementById('searchBtn');
+                const clientIdInput = document.getElementById('clientId');
+                const clientSecretInput = document.getElementById('clientSecret');
+                const authorizeBtn = document.getElementById('authorizeBtn');
+                
+                searchInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && this.isAuthenticated()) {
+                        this.searchPlayer(e.target.value);
+                    }
+                });
+
+                searchBtn.addEventListener('click', () => {
+                    if (this.isAuthenticated()) {
+                        this.searchPlayer(searchInput.value);
+                    } else {
+                        this.showAuthStatus('Veuillez d\'abord vous authentifier.', 'error');
+                    }
+                });
+
+                clientIdInput.addEventListener('input', (e) => {
+                    this.clientId = e.target.value;
+                    this.saveCredentials();
+                });
+
+                clientSecretInput.addEventListener('input', (e) => {
+                    this.clientSecret = e.target.value;
+                    this.saveCredentials();
+                });
+
+                authorizeBtn.addEventListener('click', () => {
+                    this.startOAuthFlow();
+                });
+            }
+
+            loadSavedCredentials() {
+                try {
+                    const savedData = JSON.parse(sessionStorage.getItem('osu_credentials') || '{}');
+                    
+                    this.clientId = savedData.clientId || '';
+                    this.clientSecret = savedData.clientSecret || '';
+                    this.accessToken = savedData.accessToken || '';
+                    this.refreshToken = savedData.refreshToken || '';
+                    this.tokenExpiry = savedData.tokenExpiry || 0;
+                    
+                    document.getElementById('clientId').value = this.clientId;
+                    document.getElementById('clientSecret').value = this.clientSecret;
+                    
+                    if (this.isAuthenticated()) {
+                        this.showAuthStatus('✅ Authentifié avec succès!', 'success');
+                        this.updateSearchButtonState();
+                    }
+                } catch (error) {
+                    console.error('Erreur lors du chargement des credentials:', error);
+                }
+            }
+
+            saveCredentials() {
+                const credentials = {
+                    clientId: this.clientId,
+                    clientSecret: this.clientSecret,
+                    accessToken: this.accessToken,
+                    refreshToken: this.refreshToken,
+                    tokenExpiry: this.tokenExpiry
+                };
+                
+                sessionStorage.setItem('osu_credentials', JSON.stringify(credentials));
+            }
+
+            startOAuthFlow() {
+                if (!this.clientId || !this.clientSecret) {
+                    this.showAuthStatus('Veuillez entrer votre Client ID et Client Secret.', 'error');
+                    return;
+                }
+
+                const state = this.generateRandomString(32);
+                sessionStorage.setItem('oauth_state', state);
+
+                const authUrl = new URL(`${this.authBaseUrl}/authorize`);
+                authUrl.searchParams.set('client_id', this.clientId);
+                authUrl.searchParams.set('redirect_uri', this.redirectUri);
+                authUrl.searchParams.set('response_type', 'code');
+                authUrl.searchParams.set('scope', 'public');
+                authUrl.searchParams.set('state', state);
+
+                window.location.href = authUrl.toString();
+            }
+
+            async handleOAuthCallback() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const code = urlParams.get('code');
+                const state = urlParams.get('state');
+                const error = urlParams.get('error');
+
+                if (error) {
+                    this.showAuthStatus(`Erreur d'autorisation: ${error}`, 'error');
+                    this.clearUrl();
+                    return;
+                }
+
+                if (code && state) {
+                    const savedState = sessionStorage.getItem('oauth_state');
+                    if (state !== savedState) {
+                        this.showAuthStatus('Erreur de sécurité: état invalide', 'error');
+                        this.clearUrl();
+                        return;
+                    }
+
+                    try {
+                        await this.exchangeCodeForToken(code);
+                        this.showAuthStatus('✅ Authentification réussie!', 'success');
+                        this.updateSearchButtonState();
+                    } catch (error) {
+                        this.showAuthStatus(`Erreur d'authentification: ${error.message}`, 'error');
+                    }
+                    
+                    this.clearUrl();
+                }
+            }
+
+            async exchangeCodeForToken(code) {
+                const tokenData = {
+                    client_id: this.clientId,
+                    client_secret: this.clientSecret,
+                    code: code,
+                    grant_type: 'authorization_code',
+                    redirect_uri: this.redirectUri
+                };
+
+                const response = await fetch(`${this.authBaseUrl}/token`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(tokenData)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error_description || `HTTP ${response.status}`);
+                }
+
+                const tokenResponse = await response.json();
+                
+                this.accessToken = tokenResponse.access_token;
+                this.refreshToken = tokenResponse.refresh_token;
+                this.tokenExpiry = Date.now() + (tokenResponse.expires_in * 1000);
+                
+                this.saveCredentials();
+            }
+
+            async refreshAccessToken() {
+                if (!this.refreshToken) {
+                    throw new Error('Aucun refresh token disponible');
+                }
+
+                const tokenData = {
+                    client_id: this.clientId,
+                    client_secret: this.clientSecret,
+                    refresh_token: this.refreshToken,
+                    grant_type: 'refresh_token'
+                };
+
+                const response = await fetch(`${this.authBaseUrl}/token`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(tokenData)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Impossible de renouveler le token');
+                }
+
+                const tokenResponse = await response.json();
+                
+                this.accessToken = tokenResponse.access_token;
+                if (tokenResponse.refresh_token) {
+                    this.refreshToken = tokenResponse.refresh_token;
+                }
+                this.tokenExpiry = Date.now() + (tokenResponse.expires_in * 1000);
+                
+                this.saveCredentials();
+            }
+
+            async makeApiRequest(endpoint) {
+                if (!this.isAuthenticated()) {
+                    throw new Error('Non authentifié. Veuillez vous connecter d\'abord.');
+                }
+
+                // Vérifier si le token expire dans les 5 prochaines minutes
+                if (this.tokenExpiry - Date.now() < 300000) {
+                    try {
+                        await this.refreshAccessToken();
+                    } catch (error) {
+                        console.error('Erreur lors du renouvellement du token:', error);
+                        throw new Error('Token expiré. Veuillez vous reconnecter.');
+                    }
+                }
+
+                const response = await fetch(`${this.apiBase}${endpoint}`, {
+                    headers: {
+                        'Authorization': `Bearer ${this.accessToken}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        // Token invalide, essayer de le renouveler
+                        try {
+                            await this.refreshAccessToken();
+                            // Réessayer la requête
+                            return this.makeApiRequest(endpoint);
+                        } catch (refreshError) {
+                            throw new Error('Session expirée. Veuillez vous reconnecter.');
+                        }
+                    } else if (response.status === 404) {
+                        throw new Error('Joueur non trouvé.');
+                    } else {
+                        throw new Error(`Erreur API: ${response.status} - ${response.statusText}`);
+                    }
+                }
+
+                return await response.json();
+            }
+
+            isAuthenticated() {
+                return this.accessToken && this.tokenExpiry > Date.now();
+            }
+
+            updateSearchButtonState() {
+                const searchBtn = document.getElementById('searchBtn');
+                const searchInput = document.getElementById('playerSearch');
+                
+                if (this.isAuthenticated()) {
+                    searchBtn.disabled = false;
+                    searchInput.disabled = false;
+                    searchBtn.textContent = '🔍 Rechercher';
+                } else {
+                    searchBtn.disabled = true;
+                    searchInput.disabled = true;
+                    searchBtn.textContent = '🔒 Non authentifié';
+                }
+            }
+
+            async searchPlayer(username) {
+                if (!username.trim()) {
+                    this.showError('Veuillez entrer un nom de joueur.');
+                    return;
+                }
+                
+                this.showLoading('Recherche en cours...');
+                
+                try {
+                    const mainPlayer = await this.makeApiRequest(`/users/${encodeURIComponent(username)}/osu`);
+                    
+                    if (!mainPlayer || !mainPlayer.statistics) {
+                        throw new Error('Joueur non trouvé ou données incomplètes.');
+                    }
+
+                    this.currentPlayer = mainPlayer;
+                    await this.displayRanking(mainPlayer);
+                    this.startLiveUpdates();
+                    
+                } catch (error) {
+                    this.showError(error.message);
+                    console.error('Erreur lors de la recherche:', error);
+                }
+            }
+
+            async displayRanking(mainPlayer) {
+                const currentRank = mainPlayer.statistics.global_rank;
+                
+                if (!currentRank) {
+                    throw new Error('Le joueur n\'a pas de rang global.');
+                }
+
+                try {
+                    const rankingData = await this.makeApiRequest(`/rankings/osu/performance?cursor[page]=${Math.max(1, Math.floor(currentRank / 50))}`);
+                    this.playerData = this.createPlayerList(mainPlayer, rankingData.ranking, currentRank);
+                    this.renderPlayerCards();
+                    
+                } catch (error) {
+                    console.error('Erreur lors de la récupération du classement:', error);
+                    this.playerData = [
+                        this.createFallbackPlayer(currentRank - 2),
+                        this.createFallbackPlayer(currentRank - 1),
+                        mainPlayer,
+                        this.createFallbackPlayer(currentRank + 1)
+                    ];
+                    this.renderPlayerCards();
+                }
+            }
+
+            createPlayerList(mainPlayer, rankingList, currentRank) {
+                const players = [];
+                const mainPlayerIndex = rankingList.findIndex(p => p.user.id === mainPlayer.id);
+                
+                if (mainPlayerIndex !== -1) {
+                    for (let i = Math.max(0, mainPlayerIndex - 2); i <= Math.min(rankingList.length - 1, mainPlayerIndex + 1); i++) {
+                        if (rankingList[i]) {
+                            players.push({
+                                ...rankingList[i].user,
+                                statistics: {
+                                    ...rankingList[i].user.statistics,
+                                    global_rank: rankingList[i].user.statistics.global_rank
+                                }
+                            });
+                        }
+                    }
+                } else {
+                    players.push(
+                        this.createFallbackPlayer(currentRank - 2),
+                        this.createFallbackPlayer(currentRank - 1),
+                        mainPlayer,
+                        this.createFallbackPlayer(currentRank + 1)
+                    );
+                }
+                
+                return players;
+            }
+
+            createFallbackPlayer(rank) {
+                return {
+                    id: Math.floor(Math.random() * 10000000),
+                    username: `Joueur #${rank}`,
+                    avatar_url: null,
+                    country: { code: 'XX', name: 'Inconnu' },
+                    statistics: {
+                        ranked_score: Math.floor(Math.random() * 50000000000),
+                        global_rank: rank,
+                        pp: Math.floor(Math.random() * 10000),
+                        last_visit: new Date(Date.now() - Math.random() * 7200000).toISOString()
+                    }
+                };
+            }
+
+            renderPlayerCards() {
+                const container = document.getElementById('rankingDisplay');
+                container.innerHTML = '';
+
+                this.playerData.forEach((player, index) => {
+                    const card = this.createPlayerCard(player, index);
+                    container.appendChild(card);
+
+                    if (index < this.playerData.length - 1) {
+                        const diff = this.createScoreDifference(player, this.playerData[index + 1]);
+                        container.appendChild(diff);
+                    }
+                });
+            }
+
+            createPlayerCard(player, index) {
+                const card = document.createElement('div');
+                card.className = 'player-card';
+                
+                if (index === 0) card.classList.add('rank-above-2');
+                else if (index === 1) card.classList.add('rank-above-1');
+                else if (index === 2) {
+                    card.classList.add('main');
+                    this.currentPlayer = player;
+                } else {
+                    card.classList.add('rank-below');
+                }
+
+                const isOnline = this.isPlayerOnline(player.statistics.last_visit);
+                const lastActivity = this.getLastActivityText(player.statistics.last_visit);
+                const countryFlag = player.country ? `https://osu.ppy.sh/images/flags/${player.country.code}.png` : '';
+
+                card.innerHTML = `
+                    <div class="avatar-container">
+                        <div class="player-avatar">
+                            ${player.avatar_url ? 
+                                `<img src="${player.avatar_url}" alt="Avatar" onerror="this.style.display='none'; this.parentNode.innerHTML='<span>👤</span>';">` : 
+                                '<span style="font-size: 24px;">👤</span>'
+                            }
+                        </div>
+                        <div class="status-indicator ${isOnline ? 'status-online' : 'status-offline'}"></div>
+                    </div>
+                    <div class="player-info">
+                        <div class="player-name">
+                            ${countryFlag ? `<img src="${countryFlag}" class="country-flag" alt="${player.country?.name || ''}" onerror="this.style.display='none';">` : ''}
+                            ${player.username}
+                        </div>
+                        <div class="player-score">Score classé : ${this.formatNumber(player.statistics.ranked_score)}</div>
+                        ${player.statistics.pp ? `<div class="pp-info">${this.formatNumber(player.statistics.pp)}pp</div>` : ''}
+                        <div class="recent-activity">${lastActivity}</div>
+                    </div>
+                    <div class="player-rank">#${player.statistics.global_rank}</div>
+                `;
+
+                this.lastScores.set(player.id, player.statistics.ranked_score);
+                return card;
+            }
+
+            createScoreDifference(player1, player2) {
+                const diff = document.createElement('div');
+                const scoreDiff = player1.statistics.ranked_score - player2.statistics.ranked_score;
+                
+                diff.className = `score-difference ${scoreDiff > 0 ? 'positive' : 'negative'}`;
+                diff.textContent = `${scoreDiff > 0 ? '+' : ''}${this.formatNumber(scoreDiff)}`;
+                
+                return diff;
+            }
+
+            isPlayerOnline(lastVisit) {
+                if (!lastVisit) return false;
+                const lastVisitTime = new Date(lastVisit);
+                const now = new Date();
+                const diffMinutes = (now - lastVisitTime) / (1000 * 60);
+                return diffMinutes <= 10;
+            }
+
+            getLastActivityText(lastVisit) {
+                if (!lastVisit) return 'Activité inconnue';
+                
+                const lastVisitTime = new Date(lastVisit);
+                const now = new Date();
+                const diffMinutes = Math.floor((now - lastVisitTime) / (1000 * 60));
+                const diffHours = Math.floor(diffMinutes / 60);
+                const diffDays = Math.floor(diffHours / 24);
+                
+                if (diffMinutes <= 1) return '🟢 En ligne maintenant';
+                if (diffMinutes <= 10) return `🟢 Actif il y a ${diffMinutes} min`;
+                if (diffMinutes <= 60) return `🟡 Vu il y a ${diffMinutes} min`;
+                if (diffHours <= 24) return `🟠 Vu il y a ${diffHours}h`;
+                if (diffDays <= 7) return `🔴 Vu il y a ${diffDays}j`;
+                return '🔴 Inactif depuis longtemps';
+            }
+
+            startLiveUpdates() {
+                if (this.updateInterval) {
+                    clearInterval(this.updateInterval);
+                }
+
+                this.updateInterval = setInterval(async () => {
+                    if (this.currentPlayer && this.isAuthenticated()) {
+                        try {
+                            await this.updatePlayerData();
+                        } catch (error) {
+                            console.error('Erreur lors de la mise à jour:', error);
+                            if (error.message.includes('Session expirée')) {
+                                this.showAuthStatus('Session expirée. Veuillez vous reconnecter.', 'error');
+                                this.stopUpdates();
+                            }
+                        }
+                    }
+                }, 30000);
+            }
+
+            async updatePlayerData() {
+                try {
+                    const updatedPlayer = await this.makeApiRequest(`/users/${this.currentPlayer.id}/osu`);
+                    
+                    const oldScore = this.currentPlayer.statistics.ranked_score;
+                    const newScore = updatedPlayer.statistics.ranked_score;
+                    
+                    if (newScore !== oldScore) {
+                        await this.displayRanking(updatedPlayer);
+                        
+                        if (newScore > oldScore) {
+                            this.showScoreAnimation(2, newScore - oldScore);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Erreur lors de la mise à jour des données:', error);
+                    throw error;
+                }
+            }
+
+            showScoreAnimation(playerIndex, scoreGain) {
+                setTimeout(() => {
+                    const cards = document.querySelectorAll('.player-card');
+                    if (cards[playerIndex]) {
+                        const animation = document.createElement('div');
+                        animation.className = 'score-animation';
+                        animation.textContent = `+${this.formatNumber(scoreGain)}`;
+                        
+                        cards[playerIndex].style.position = 'relative';
+                        cards[playerIndex].appendChild(animation);
+                        
+                        setTimeout(() => {
+                            if (animation.parentNode) {
+                                animation.remove();
+                            }
+                        }, 3000);
+                    }
+                }, 500);
+            }
+
+            formatNumber(num) {
+                if (typeof num !== 'number') return '0';
+                return num.toLocaleString('fr-FR');
+            }
+
+            showLoading(message = 'Chargement...') {
+                document.getElementById('rankingDisplay').innerHTML = `<div class="loading">⏳ ${message}</div>`;
+            }
+
+            showError(message) {
+                document.getElementById('rankingDisplay').innerHTML = `<div class="error">❌ ${message}</div>`;
+            }
+
+            showAuthStatus(message, type) {
+                const statusElement = document.getElementById('authStatus');
+                statusElement.textContent = message;
+                statusElement.className = `auth-status ${type}`;
+                statusElement.classList.remove('hidden');
+                
+                if (type === 'success') {
+                    setTimeout(() => {
+                        statusElement.classList.add('hidden');
+                    }, 5000);
+                }
+            }
+
+            stopUpdates() {
+                if (this.updateInterval) {
+                    clearInterval(this.updateInterval);
+                    this.updateInterval = null;
+                }
+            }
+
+            clearUrl() {
+                const url = new URL(window.location);
+                url.searchParams.delete('code');
+                url.searchParams.delete('state');
+                url.searchParams.delete('error');
+                window.history.replaceState({}, document.title, url.toString());
+            }
+
+            generateRandomString(length) {
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                let result = '';
+                for (let i = 0; i < length; i++) {
+                    result += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                return result;
+            }
+        }
+
+        // Initialiser l'application
+        const tracker = new OsuScoreTracker();
+
+        // Nettoyer les intervalles quand la page se ferme
+        window.addEventListener('beforeunload', () => {
+            tracker.stopUpdates();
+        });
+
+        // Mettre à jour l'état du bouton de recherche périodiquement
+        setInterval(() => {
+            tracker.updateSearchButtonState();
+        }, 60000); // Chaque minute
+    </script>
+</body>
+</html>
