@@ -487,7 +487,6 @@
                     this.clientId = savedData.clientId || '';
                     this.clientSecret = savedData.clientSecret || '';
                     this.accessToken = savedData.accessToken || '';
-                    this.refreshToken = savedData.refreshToken || '';
                     this.tokenExpiry = savedData.tokenExpiry || 0;
                     
                     document.getElementById('clientId').value = this.clientId;
@@ -503,7 +502,7 @@
             }
 
             saveCredentials() {
-                console.log('Sauvegarde des credentials...');
+                console.log('Sauvegarde des credentials');
                 const credentials = {
                     clientId: this.clientId,
                     clientSecret: this.clientSecret,
@@ -511,23 +510,18 @@
                     tokenExpiry: this.tokenExpiry
                 };
                 
-                try {
-                    sessionStorage.setItem('osu_credentials', JSON.stringify(credentials));
-                    console.log('Credentials sauvegardés avec succès');
-                } catch (error) {
-                    console.error('Erreur lors de la sauvegarde des credentials:', error);
-                }
+                sessionStorage.setItem('osu_credentials', JSON.stringify(credentials));
             }
 
             async validateCredentials() {
-                console.log('Tentative de validation des credentials...');
+                console.log('Début de la validation des credentials');
                 if (!this.clientId || !this.clientSecret) {
                     this.showAuthStatus('Veuillez entrer votre Client ID et Client Secret.', 'error');
                     return;
                 }
             
-                console.log('Credentials présents, tentative de connexion à l\'API...');
                 try {
+                    console.log('Préparation de la requête de token');
                     const tokenData = {
                         client_id: this.clientId,
                         client_secret: this.clientSecret,
@@ -535,7 +529,7 @@
                         scope: 'public'
                     };
             
-                    console.log('Envoi de la requête d\'authentification...');
+                    console.log('Envoi de la requête de token');
                     const response = await fetch(`${this.authBaseUrl}/token`, {
                         method: 'POST',
                         headers: {
@@ -547,12 +541,12 @@
             
                     console.log('Réponse reçue:', response.status);
                     if (!response.ok) {
-                        const errorData = await response.json().catch(() => ({}));
-                        throw new Error(errorData.error_description || `Erreur HTTP: ${response.status}`);
+                        const errorData = await response.json();
+                        throw new Error(errorData.error_description || 'Erreur d\'authentification');
                     }
             
                     const tokenResponse = await response.json();
-                    console.log('Token obtenu avec succès!');
+                    console.log('Token reçu avec succès');
                     
                     this.accessToken = tokenResponse.access_token;
                     this.tokenExpiry = Date.now() + (tokenResponse.expires_in * 1000);
@@ -562,11 +556,7 @@
                     this.updateSearchButtonState();
                 } catch (error) {
                     console.error('Erreur complète:', error);
-                    let errorMessage = error.message;
-                    if (error.message.includes('NetworkError')) {
-                        errorMessage = 'Erreur de connexion à l\'API osu!. Vérifiez votre connexion internet et vos identifiants.';
-                    }
-                    this.showAuthStatus(`Erreur d'authentification: ${errorMessage}`, 'error');
+                    this.showAuthStatus(`Erreur d'authentification: ${error.message}`, 'error');
                 }
             }
 
@@ -587,29 +577,41 @@
             }
 
             async makeApiRequest(endpoint) {
+                console.log('Début makeApiRequest pour:', endpoint);
+                
                 if (!this.isAuthenticated()) {
                     throw new Error('Non authentifié. Veuillez vous connecter d\'abord.');
                 }
             
-                const response = await fetch(`${this.apiBase}${endpoint}`, {
-                    headers: {
-                        'Authorization': `Bearer ${this.accessToken}`,
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    }
-                });
+                try {
+                    console.log('Envoi de la requête API...');
+                    const response = await fetch(`${this.apiBase}${endpoint}`, {
+                        headers: {
+                            'Authorization': `Bearer ${this.accessToken}`,
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        }
+                    });
             
-                if (!response.ok) {
-                    if (response.status === 401) {
-                        throw new Error('Session expirée. Veuillez vous reconnecter.');
-                    } else if (response.status === 404) {
-                        throw new Error('Joueur non trouvé.');
-                    } else {
-                        throw new Error(`Erreur API: ${response.status} - ${response.statusText}`);
+                    console.log('Réponse reçue:', response.status);
+            
+                    if (!response.ok) {
+                        if (response.status === 401) {
+                            throw new Error('Session expirée. Veuillez vous reconnecter.');
+                        } else if (response.status === 404) {
+                            throw new Error('Joueur non trouvé.');
+                        } else {
+                            throw new Error(`Erreur API: ${response.status} - ${response.statusText}`);
+                        }
                     }
+            
+                    const data = await response.json();
+                    console.log('Données reçues avec succès');
+                    return data;
+                } catch (error) {
+                    console.error('Erreur dans makeApiRequest:', error);
+                    throw error;
                 }
-            
-                return await response.json();
             }
 
             async areCredentialsValid() {
