@@ -512,14 +512,19 @@
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Accept': 'application/json'
+                            'Accept': 'application/json',
+                            // Ajout des headers CORS
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'POST',
+                            'Access-Control-Allow-Headers': 'Content-Type'
                         },
+                        mode: 'cors', // Explicitement définir le mode CORS
                         body: JSON.stringify(tokenData)
                     });
             
                     if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error_description || 'Erreur d\'authentification');
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.error_description || `Erreur HTTP: ${response.status}`);
                     }
             
                     const tokenResponse = await response.json();
@@ -531,8 +536,29 @@
                     this.showAuthStatus('✅ Authentification réussie!', 'success');
                     this.updateSearchButtonState();
                 } catch (error) {
-                    this.showAuthStatus(`Erreur d'authentification: ${error.message}`, 'error');
-                    console.error('Erreur d\'authentification:', error);
+                    // Amélioration de la gestion des erreurs
+                    let errorMessage = error.message;
+                    if (error.message.includes('NetworkError')) {
+                        errorMessage = 'Erreur de connexion à l\'API osu!. Vérifiez votre connexion internet et vos identifiants.';
+                    }
+                    this.showAuthStatus(`Erreur d'authentification: ${errorMessage}`, 'error');
+                    console.error('Détails de l\'erreur:', error);
+                }
+            }
+
+            async checkApiConnection() {
+                try {
+                    const response = await fetch(`${this.apiBase}/ping`, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json'
+                        },
+                        mode: 'cors'
+                    });
+                    return response.ok;
+                } catch (error) {
+                    console.error('Erreur de connexion à l\'API:', error);
+                    return false;
                 }
             }
 
@@ -608,16 +634,72 @@
                 if (!this.isAuthenticated()) {
                     throw new Error('Non authentifié. Veuillez vous connecter d\'abord.');
                 }
-
-                // Vérifier si le token expire dans les 5 prochaines minutes
-                if (this.tokenExpiry - Date.now() < 300000) {
-                    try {
-                        await this.refreshAccessToken();
-                    } catch (error) {
-                        console.error('Erreur lors du renouvellement du token:', error);
-                        throw new Error('Token expiré. Veuillez vous reconnecter.');
+            
+                try {
+                    // Vérifier la connexion à l'API avant de faire la requête
+                    const isApiAvailable = await this.checkApiConnection();
+                    if (!isApiAvailable) {
+                        throw new Error('Impossible de se connecter à l\'API osu!. Vérifiez votre connexion internet.');
                     }
+            
+                    const response = await fetch(`${this.apiBase}${endpoint}`, {
+                        headers: {
+                            'Authorization': `Bearer ${this.accessToken}`,
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'Access-Control-Allow-Origin': '*'
+                        },
+                        mode: 'cors'
+                    });
+            
+                    if (!response.ok) {
+                        if (response.status === 401) {
+                            // Token invalide ou expiré
+                            throw new Error('Session expirée. Veuillez vous reconnecter.');
+                        } else if (response.status === 404) {
+                            throw new Error('Joueur non trouvé.');
+                        } else {
+                            throw new Error(`Erreur API: ${response.status} - ${response.statusText}`);
+                        }
+                    }
+            
+                    return await response.json();
+                } catch (error) {
+                    if (error.message.includes('NetworkError')) {
+                        throw new Error('Erreur de connexion à l\'API. Vérifiez votre connexion internet.');
+                    }
+                    throw error;
                 }
+            }
+
+            async areCredentialsValid() {
+                if (!this.clientId || !this.clientSecret) {
+                    return false;
+                }
+            
+                try {
+                    const tokenData = {
+                        client_id: this.clientId,
+                        client_secret: this.clientSecret,
+                        grant_type: 'client_credentials',
+                        scope: 'public'
+                    };
+            
+                    const response = await fetch(`${this.authBaseUrl}/token`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        mode: 'cors',
+                        body: JSON.stringify(tokenData)
+                    });
+            
+                    return response.ok;
+                } catch {
+                    return false;
+                }
+            }
 
                 const response = await fetch(`${this.apiBase}${endpoint}`, {
                     headers: {
