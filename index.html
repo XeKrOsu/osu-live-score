@@ -502,7 +502,6 @@
             }
 
             saveCredentials() {
-                console.log('Sauvegarde des credentials');
                 const credentials = {
                     clientId: this.clientId,
                     clientSecret: this.clientSecret,
@@ -585,9 +584,10 @@
             
                 try {
                     console.log('Envoi de la requête API...');
-                    const response = await fetch(`${this.apiBase}${endpoint}`, {
+                    const url = this.apiBase + endpoint;
+                    const response = await fetch(url, {
                         headers: {
-                            'Authorization': `Bearer ${this.accessToken}`,
+                            'Authorization': 'Bearer ' + this.accessToken,
                             'Content-Type': 'application/json',
                             'Accept': 'application/json'
                         }
@@ -601,7 +601,7 @@
                         } else if (response.status === 404) {
                             throw new Error('Joueur non trouvé.');
                         } else {
-                            throw new Error(`Erreur API: ${response.status} - ${response.statusText}`);
+                            throw new Error('Erreur API: ' + response.status + ' - ' + response.statusText);
                         }
                     }
             
