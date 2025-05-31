@@ -696,51 +696,55 @@
                     
                     // Récupérer les données de score du joueur principal
                     const scoreData = await this.getScoreRankData(mainPlayer.id);
+                    console.log('Données de score reçues:', scoreData);
                     
                     // Créer un tableau pour stocker les joueurs
                     const players = [];
                     
-                    // Si nous avons un joueur précédent, le récupérer
+                    // Si nous avons un joueur précédent
                     if (scoreData.prev) {
                         try {
                             const prevPlayerData = await this.makeApiRequest(`/users/${scoreData.prev.user_id}/osu`);
-                            players.push(prevPlayerData);
+                            const prevPlayer = {
+                                ...prevPlayerData,
+                                statistics: {
+                                    ...prevPlayerData.statistics,
+                                    ranked_score: scoreData.prev.score,
+                                    global_rank: scoreData.rank - 1
+                                }
+                            };
+                            players.push(prevPlayer);
                         } catch (error) {
                             console.error('Erreur lors de la récupération du joueur précédent:', error);
-                            players.push(this.createFallbackPlayer(scoreData.rank - 1));
                         }
                     }
                     
-                    // Ajouter le joueur principal
+                    // Ajouter le joueur principal avec son score correct
                     const mainPlayerWithRank = {
                         ...mainPlayer,
                         statistics: {
                             ...mainPlayer.statistics,
-                            global_rank: scoreData.rank // Utiliser le rank du score au lieu du rank PP
+                            ranked_score: scoreData.ranked_score || mainPlayer.statistics.ranked_score,
+                            global_rank: scoreData.rank
                         }
                     };
                     players.push(mainPlayerWithRank);
                     
-                    // Si nous avons un joueur suivant, le récupérer et son suivant
+                    // Si nous avons un joueur suivant
                     if (scoreData.next) {
                         try {
                             const nextPlayerData = await this.makeApiRequest(`/users/${scoreData.next.user_id}/osu`);
-                            players.push(nextPlayerData);
-                            
-                            // Récupérer les données de score du joueur suivant
-                            const nextScoreData = await this.getScoreRankData(scoreData.next.user_id);
-                            if (nextScoreData.next) {
-                                const nextNextPlayerData = await this.makeApiRequest(`/users/${nextScoreData.next.user_id}/osu`);
-                                players.push(nextNextPlayerData);
-                            }
+                            const nextPlayer = {
+                                ...nextPlayerData,
+                                statistics: {
+                                    ...nextPlayerData.statistics,
+                                    ranked_score: scoreData.next.score,
+                                    global_rank: scoreData.rank + 1
+                                }
+                            };
+                            players.push(nextPlayer);
                         } catch (error) {
-                            console.error('Erreur lors de la récupération des joueurs suivants:', error);
-                            if (players.length === 2) {
-                                players.push(
-                                    this.createFallbackPlayer(scoreData.rank + 1),
-                                    this.createFallbackPlayer(scoreData.rank + 2)
-                                );
-                            }
+                            console.error('Erreur lors de la récupération du joueur suivant:', error);
                         }
                     }
                     
@@ -854,19 +858,21 @@
                 const card = document.createElement('div');
                 card.className = 'player-card';
                 
-                if (index === 0) card.classList.add('rank-above-2');
-                else if (index === 1) card.classList.add('rank-above-1');
-                else if (index === 2) {
+                if (index === 0) card.classList.add('rank-above-1');
+                else if (index === 1) {
                     card.classList.add('main');
                     this.currentPlayer = player;
                 } else {
                     card.classList.add('rank-below');
                 }
-
+            
                 const isOnline = this.isPlayerOnline(player.statistics.last_visit);
                 const lastActivity = this.getLastActivityText(player.statistics.last_visit);
                 const countryFlag = player.country ? `https://osu.ppy.sh/images/flags/${player.country.code}.png` : '';
-
+            
+                // S'assurer que ranked_score existe et est un nombre
+                const rankedScore = player.statistics.ranked_score || 0;
+            
                 card.innerHTML = `
                     <div class="avatar-container">
                         <div class="player-avatar">
@@ -882,14 +888,14 @@
                             ${countryFlag ? `<img src="${countryFlag}" class="country-flag" alt="${player.country?.name || ''}" onerror="this.style.display='none';">` : ''}
                             ${player.username}
                         </div>
-                        <div class="player-score">Score classé : ${this.formatNumber(player.statistics.ranked_score)}</div>
+                        <div class="player-score">Score classé : ${this.formatNumber(rankedScore)}</div>
                         ${player.statistics.pp ? `<div class="pp-info">${this.formatNumber(player.statistics.pp)}pp</div>` : ''}
                         <div class="recent-activity">${lastActivity}</div>
                     </div>
                     <div class="player-rank">#${player.statistics.global_rank}</div>
                 `;
-
-                this.lastScores.set(player.id, player.statistics.ranked_score);
+            
+                this.lastScores.set(player.id, rankedScore);
                 return card;
             }
 
