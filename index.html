@@ -688,7 +688,7 @@
                     this.showError(error.message);
                     console.error('Erreur lors de la recherche:', error);
                 }
-            }
+            }    
 
             async displayRanking(mainPlayer) {
                 try {
@@ -702,15 +702,15 @@
                     const players = [];
                     
                     // Si nous avons un joueur précédent
-                    if (scoreData.prev) {
+                    if (scoreData[0]?.prev) {
                         try {
-                            const prevPlayerData = await this.makeApiRequest(`/users/${scoreData.prev.user_id}/osu`);
+                            const prevPlayerData = await this.makeApiRequest(`/users/${scoreData[0].prev.user_id}/osu`);
                             const prevPlayer = {
                                 ...prevPlayerData,
                                 statistics: {
                                     ...prevPlayerData.statistics,
-                                    ranked_score: scoreData.prev.score,
-                                    global_rank: scoreData.rank - 1
+                                    ranked_score: scoreData[0].prev.score,
+                                    global_rank: scoreData[0].rank - 1
                                 }
                             };
                             players.push(prevPlayer);
@@ -724,22 +724,22 @@
                         ...mainPlayer,
                         statistics: {
                             ...mainPlayer.statistics,
-                            ranked_score: scoreData.ranked_score || mainPlayer.statistics.ranked_score,
-                            global_rank: scoreData.rank
+                            ranked_score: scoreData[0].score || mainPlayer.statistics.ranked_score,
+                            global_rank: scoreData[0].rank
                         }
                     };
                     players.push(mainPlayerWithRank);
                     
                     // Si nous avons un joueur suivant
-                    if (scoreData.next) {
+                    if (scoreData[0]?.next) {
                         try {
-                            const nextPlayerData = await this.makeApiRequest(`/users/${scoreData.next.user_id}/osu`);
+                            const nextPlayerData = await this.makeApiRequest(`/users/${scoreData[0].next.user_id}/osu`);
                             const nextPlayer = {
                                 ...nextPlayerData,
                                 statistics: {
                                     ...nextPlayerData.statistics,
-                                    ranked_score: scoreData.next.score,
-                                    global_rank: scoreData.rank + 1
+                                    ranked_score: scoreData[0].next.score,
+                                    global_rank: scoreData[0].rank + 1
                                 }
                             };
                             players.push(nextPlayer);
@@ -870,8 +870,9 @@
                 const lastActivity = this.getLastActivityText(player.statistics.last_visit);
                 const countryFlag = player.country ? `https://osu.ppy.sh/images/flags/${player.country.code}.png` : '';
             
-                // S'assurer que ranked_score existe et est un nombre
-                const rankedScore = player.statistics.ranked_score || 0;
+                // Utiliser la propriété ranked_score directement depuis les statistiques du joueur
+                const rankedScore = player.statistics.ranked_score;
+                console.log('Score pour', player.username, ':', rankedScore);
             
                 card.innerHTML = `
                     <div class="avatar-container">
