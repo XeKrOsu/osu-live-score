@@ -694,32 +694,30 @@
                 try {
                     console.log('Récupération du classement pour:', mainPlayer.username);
                     
-                    // Récupérer les données de score du joueur principal
                     const scoreData = await this.getScoreRankData(mainPlayer.id);
                     console.log('Données de score reçues:', scoreData);
                     
-                    // Créer un tableau pour stocker les joueurs
                     const players = [];
                     
-                    // Si nous avons un joueur précédent
-                    if (scoreData[0]?.prev) {
+                    // Joueur suivant (score plus élevé) d'abord
+                    if (scoreData[0]?.next) {
                         try {
-                            const prevPlayerData = await this.makeApiRequest(`/users/${scoreData[0].prev.user_id}/osu`);
-                            const prevPlayer = {
-                                ...prevPlayerData,
+                            const nextPlayerData = await this.makeApiRequest(`/users/${scoreData[0].next.user_id}/osu`);
+                            const nextPlayer = {
+                                ...nextPlayerData,
                                 statistics: {
-                                    ...prevPlayerData.statistics,
-                                    ranked_score: scoreData[0].prev.score,
-                                    global_rank: scoreData[0].rank - 1
+                                    ...nextPlayerData.statistics,
+                                    ranked_score: scoreData[0].next.score,
+                                    global_rank: scoreData[0].rank - 1 // Rang plus petit car meilleur
                                 }
                             };
-                            players.push(prevPlayer);
+                            players.push(nextPlayer);
                         } catch (error) {
-                            console.error('Erreur lors de la récupération du joueur précédent:', error);
+                            console.error('Erreur lors de la récupération du joueur suivant:', error);
                         }
                     }
                     
-                    // Ajouter le joueur principal avec son score correct
+                    // Joueur principal
                     const mainPlayerWithRank = {
                         ...mainPlayer,
                         statistics: {
@@ -730,21 +728,21 @@
                     };
                     players.push(mainPlayerWithRank);
                     
-                    // Si nous avons un joueur suivant
-                    if (scoreData[0]?.next) {
+                    // Joueur précédent (score plus bas) ensuite
+                    if (scoreData[0]?.prev) {
                         try {
-                            const nextPlayerData = await this.makeApiRequest(`/users/${scoreData[0].next.user_id}/osu`);
-                            const nextPlayer = {
-                                ...nextPlayerData,
+                            const prevPlayerData = await this.makeApiRequest(`/users/${scoreData[0].prev.user_id}/osu`);
+                            const prevPlayer = {
+                                ...prevPlayerData,
                                 statistics: {
-                                    ...nextPlayerData.statistics,
-                                    ranked_score: scoreData[0].next.score,
-                                    global_rank: scoreData[0].rank + 1
+                                    ...prevPlayerData.statistics,
+                                    ranked_score: scoreData[0].prev.score,
+                                    global_rank: scoreData[0].rank + 1 // Rang plus grand car moins bon
                                 }
                             };
-                            players.push(nextPlayer);
+                            players.push(prevPlayer);
                         } catch (error) {
-                            console.error('Erreur lors de la récupération du joueur suivant:', error);
+                            console.error('Erreur lors de la récupération du joueur précédent:', error);
                         }
                     }
                     
