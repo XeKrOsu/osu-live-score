@@ -367,11 +367,23 @@
             padding: 15px;
             background: #f8f9fa;
             border-radius: 8px;
+            color: #666;
+        }
+        
+        .update-interval-config label {
+            margin-right: 10px;
+            font-weight: 600;
         }
         
         .update-interval-config input[type="range"] {
             width: 200px;
             margin: 0 10px;
+            vertical-align: middle;
+        }
+        
+        .update-interval-config span {
+            font-weight: 600;
+            color: #ff69b4;
         }
     </style>
 </head>
@@ -410,9 +422,9 @@
         </div>
 
         <div class="update-interval-config">
-            <label for="updateInterval">Intervalle de mise à jour (secondes):</label>
+            <label for="updateInterval">⚡ Intervalle de mise à jour:</label>
             <input type="range" id="updateInterval" min="10" max="60" value="30">
-            <span id="intervalValue">30</span>s
+            <span id="intervalValue">30</span> secondes
         </div>
     </div>
 
@@ -426,14 +438,14 @@
                 this.currentPlayer = null;
                 this.playerData = [];
                 this.updateInterval = null;
+                this.updateIntervalDuration = 30000; // 30 secondes par défaut
                 this.lastScores = new Map();
-                this.updateIntervalDuration = 30000;
-                this.initializeUpdateInterval();
                 
                 this.apiBase = 'https://osu-live-score-proxy.byoo-9f9.workers.dev';
                 
                 this.initializeEventListeners();
                 this.loadSavedCredentials();
+                this.initializeUpdateInterval();
             }
 
             initializeUpdateInterval() {
@@ -445,7 +457,6 @@
                     intervalValue.textContent = seconds;
                     this.updateIntervalDuration = seconds * 1000;
                     
-                    // Redémarrer l'intervalle avec la nouvelle durée
                     if (this.updateInterval) {
                         clearInterval(this.updateInterval);
                         this.startLiveUpdates();
@@ -709,41 +720,53 @@
                 this.showLoading('Recherche en cours...');
                 
                 try {
+                    // Récupérer d'abord les données du joueur
                     const mainPlayer = await this.makeApiRequest(`/users/${encodeURIComponent(username)}/osu`);
                     
                     if (!mainPlayer || !mainPlayer.id) {
                         throw new Error('Joueur non trouvé ou données incomplètes.');
                     }
-            
+        
+                    // Récupérer les données de classement
+                    const rankData = await fetch(`${this.apiBase}/osu/rankings/search?username=${encodeURIComponent(username)}`, {
+                        headers: {
+                            'Authorization': `Bearer ${this.accessToken}`,
+                            'Accept': 'application/json'
+                        }
+                    }).then(res => res.json());
+        
+                    if (rankData.error) {
+                        throw new Error(rankData.error);
+                    }
+        
+                    // Mettre à jour les statistiques du joueur avec les données de classement
+                    mainPlayer.statistics.ranked_score = rankData.player.score;
+                    mainPlayer.statistics.global_rank = rankData.player.rank;
+                    
                     this.currentPlayer = mainPlayer;
-                    await this.displayRanking(mainPlayer);
+                    await this.displayRanking(mainPlayer, rankData);
                     this.startLiveUpdates();
                     
                 } catch (error) {
                     this.showError(error.message);
                     console.error('Erreur lors de la recherche:', error);
                 }
-            }    
+            }
 
-            async displayRanking(mainPlayer) {
+            async displayRanking(mainPlayer, rankData) {
                 try {
-                    console.log('Récupération du classement pour:', mainPlayer.username);
-                    
-                    const scoreData = await this.getScoreRankData(mainPlayer.id);
-                    console.log('Données de score reçues:', scoreData);
-                    
                     const players = [];
                     
-                    // Joueur suivant (score plus élevé) d'abord
-                    if (scoreData[0]?.next) {
+                    // Joueur suivant (score plus élevé)
+                    if (rankData.next) {
                         try {
-                            const nextPlayerData = await this.makeApiRequest(`/users/${scoreData[0].next.user_id}/osu`);
+                            const nextPlayerData = await this.makeApiRequest(`/users/${rankData.next.user_id}/osu`);
                             const nextPlayer = {
                                 ...nextPlayerData,
                                 statistics: {
                                     ...nextPlayerData.statistics,
-                                    ranked_score: scoreData[0].next.score,
-                                    global_rank: scoreData[0].rank - 1 // Rang plus petit car meilleur
+                                    ranked_score: rankData.next.score,
+                                    global_rank: rankData.player.rank - 1
                                 }
                             };
                             players.push(nextPlayer);
@@ -753,26 +776,18 @@
                     }
                     
                     // Joueur principal
-                    const mainPlayerWithRank = {
-                        ...mainPlayer,
-                        statistics: {
-                            ...mainPlayer.statistics,
-                            ranked_score: scoreData[0].score || mainPlayer.statistics.ranked_score,
-                            global_rank: scoreData[0].rank
-                        }
-                    };
-                    players.push(mainPlayerWithRank);
+                    players.push(mainPlayer);
                     
-                    // Joueur précédent (score plus bas) ensuite
-                    if (scoreData[0]?.prev) {
+                    // Joueur précédent (score plus bas)
+                    if (rankData.prev) {
                         try {
-                            const prevPlayerData = await this.makeApiRequest(`/users/${scoreData[0].prev.user_id}/osu`);
+                            const prevPlayerData = await this.makeApiRequest(`/users/${rankData.prev.user_id}/osu`);
                             const prevPlayer = {
                                 ...prevPlayerData,
                                 statistics: {
                                     ...prevPlayerData.statistics,
-                                    ranked_score: scoreData[0].prev.score,
-                                    global_rank: scoreData[0].rank + 1 // Rang plus grand car moins bon
+                                    ranked_score: rankData.prev.score,
+                                    global_rank: rankData.player.rank + 1
                                 }
                             };
                             players.push(prevPlayer);
@@ -934,7 +949,6 @@
 
             createScoreDifference(player1, player2) {
                 const diff = document.createElement('div');
-                // Inversons la soustraction pour avoir une valeur négative
                 const scoreDiff = player1.statistics.ranked_score - player2.statistics.ranked_score;
                 
                 diff.className = `score-difference ${scoreDiff > 0 ? 'positive' : 'negative'}`;
@@ -972,7 +986,7 @@
                 if (this.updateInterval) {
                     clearInterval(this.updateInterval);
                 }
-
+        
                 this.updateInterval = setInterval(async () => {
                     if (this.currentPlayer && this.isAuthenticated()) {
                         try {
@@ -985,26 +999,35 @@
                             }
                         }
                     }
-                }, 30000);
+                }, this.updateIntervalDuration);
             }
 
             async updatePlayerData() {
                 try {
+                    // Récupérer les nouvelles données du joueur
                     const updatedPlayer = await this.makeApiRequest(`/users/${this.currentPlayer.id}/osu`);
-                    const scoreData = await this.getScoreRankData(this.currentPlayer.id);
                     
+                    // Récupérer les nouvelles données de classement
+                    const rankData = await fetch(`${this.apiBase}/osu/rankings/search?username=${encodeURIComponent(updatedPlayer.username)}`, {
+                        headers: {
+                            'Authorization': `Bearer ${this.accessToken}`,
+                            'Accept': 'application/json'
+                        }
+                    }).then(res => res.json());
+        
+                    if (rankData.error) {
+                        throw new Error(rankData.error);
+                    }
+        
                     const oldScore = this.currentPlayer.statistics.ranked_score;
-                    const newScore = updatedPlayer.statistics.ranked_score;
+                    const newScore = rankData.player.score;
                     
-                    // Mettre à jour le rang global avec les données de score
-                    updatedPlayer.statistics.global_rank = scoreData.rank;
+                    updatedPlayer.statistics.ranked_score = newScore;
+                    updatedPlayer.statistics.global_rank = rankData.player.rank;
                     
                     if (newScore !== oldScore) {
-                        await this.displayRanking(updatedPlayer);
-                        
-                        if (newScore > oldScore) {
-                            this.showScoreAnimation(1, newScore - oldScore);
-                        }
+                        await this.displayRanking(updatedPlayer, rankData);
+                        this.showScoreAnimation(1, newScore - oldScore);
                     }
                 } catch (error) {
                     console.error('Erreur lors de la mise à jour des données:', error);
