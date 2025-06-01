@@ -766,6 +766,7 @@
                                 statistics: {
                                     ...nextPlayerData.statistics,
                                     ranked_score: rankData.next.score,
+                                    // Le joueur suivant a un rang plus petit (meilleur)
                                     global_rank: rankData.player.rank - 1
                                 }
                             };
@@ -787,6 +788,7 @@
                                 statistics: {
                                     ...prevPlayerData.statistics,
                                     ranked_score: rankData.prev.score,
+                                    // Le joueur précédent a un rang plus grand (moins bon)
                                     global_rank: rankData.player.rank + 1
                                 }
                             };
