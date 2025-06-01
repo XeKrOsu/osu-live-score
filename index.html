@@ -360,6 +360,19 @@
         .hidden {
             display: none;
         }
+
+        .update-interval-config {
+            text-align: center;
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .update-interval-config input[type="range"] {
+            width: 200px;
+            margin: 0 10px;
+        }
     </style>
 </head>
 <body>
@@ -396,8 +409,10 @@
             </div>
         </div>
 
-        <div class="refresh-info">
-            <p>🔄 Les données se mettent à jour automatiquement toutes les 30 secondes</p>
+        <div class="update-interval-config">
+            <label for="updateInterval">Intervalle de mise à jour (secondes):</label>
+            <input type="range" id="updateInterval" min="10" max="60" value="30">
+            <span id="intervalValue">30</span>s
         </div>
     </div>
 
@@ -412,6 +427,8 @@
                 this.playerData = [];
                 this.updateInterval = null;
                 this.lastScores = new Map();
+                this.updateIntervalDuration = 30000;
+                this.initializeUpdateInterval();
                 
                 this.apiBase = 'https://osu-live-score-proxy.byoo-9f9.workers.dev';
                 
@@ -419,6 +436,43 @@
                 this.loadSavedCredentials();
             }
 
+            initializeUpdateInterval() {
+                const intervalInput = document.getElementById('updateInterval');
+                const intervalValue = document.getElementById('intervalValue');
+                
+                intervalInput.addEventListener('input', (e) => {
+                    const seconds = parseInt(e.target.value);
+                    intervalValue.textContent = seconds;
+                    this.updateIntervalDuration = seconds * 1000;
+                    
+                    // Redémarrer l'intervalle avec la nouvelle durée
+                    if (this.updateInterval) {
+                        clearInterval(this.updateInterval);
+                        this.startLiveUpdates();
+                    }
+                });
+            }
+
+            startLiveUpdates() {
+                if (this.updateInterval) {
+                    clearInterval(this.updateInterval);
+                }
+            
+                this.updateInterval = setInterval(async () => {
+                    if (this.currentPlayer && this.isAuthenticated()) {
+                        try {
+                            await this.updatePlayerData();
+                        } catch (error) {
+                            console.error('Erreur lors de la mise à jour:', error);
+                            if (error.message.includes('Session expirée')) {
+                                this.showAuthStatus('Session expirée. Veuillez vous reconnecter.', 'error');
+                                this.stopUpdates();
+                            }
+                        }
+                    }
+                }, this.updateIntervalDuration);
+            }
+            
             initializeEventListeners() {
                 console.log('Initialisation des événements...');
                 const searchInput = document.getElementById('playerSearch');
@@ -880,10 +934,11 @@
 
             createScoreDifference(player1, player2) {
                 const diff = document.createElement('div');
+                // Inversons la soustraction pour avoir une valeur négative
                 const scoreDiff = player1.statistics.ranked_score - player2.statistics.ranked_score;
                 
                 diff.className = `score-difference ${scoreDiff > 0 ? 'positive' : 'negative'}`;
-                diff.textContent = `${scoreDiff > 0 ? '+' : ''}${this.formatNumber(scoreDiff)}`;
+                diff.textContent = `${scoreDiff > 0 ? '+' : '-'}${this.formatNumber(Math.abs(scoreDiff))}`;
                 
                 return diff;
             }
