@@ -757,7 +757,7 @@
                 try {
                     const players = [];
                     
-                    // Joueur suivant (score plus élevé)
+                    // Joueur suivant (meilleur rang, score plus élevé)
                     if (rankData.next) {
                         try {
                             const nextPlayerData = await this.makeApiRequest(`/users/${rankData.next.user_id}/osu`);
@@ -766,8 +766,7 @@
                                 statistics: {
                                     ...nextPlayerData.statistics,
                                     ranked_score: rankData.next.score,
-                                    // Le joueur suivant a un rang plus petit (meilleur)
-                                    global_rank: rankData.player.rank + 1
+                                    global_rank: rankData.next.rank // Utiliser le rank fourni par l'API
                                 }
                             };
                             players.push(nextPlayer);
@@ -779,7 +778,7 @@
                     // Joueur principal
                     players.push(mainPlayer);
                     
-                    // Joueur précédent (score plus bas)
+                    // Joueur précédent (moins bon rang, score plus bas)
                     if (rankData.prev) {
                         try {
                             const prevPlayerData = await this.makeApiRequest(`/users/${rankData.prev.user_id}/osu`);
@@ -788,8 +787,7 @@
                                 statistics: {
                                     ...prevPlayerData.statistics,
                                     ranked_score: rankData.prev.score,
-                                    // Le joueur précédent a un rang plus grand (moins bon)
-                                    global_rank: rankData.player.rank - 1
+                                    global_rank: rankData.prev.rank // Utiliser le rank fourni par l'API
                                 }
                             };
                             players.push(prevPlayer);
