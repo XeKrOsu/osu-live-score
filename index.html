@@ -10,25 +10,43 @@
             padding: 0;
             box-sizing: border-box;
         }
-
+        
+        :root {
+            --bg-color: #f0f0f0;
+            --text-color: #333;
+            --card-bg: #fff;
+            --header-bg: #fff;
+            --input-bg: #fff;
+            --input-border: #ddd;
+        }
+        
+        [data-theme="dark"] {
+            --bg-color: #1a1a1a;
+            --text-color: #fff;
+            --card-bg: #2d2d2d;
+            --header-bg: #2d2d2d;
+            --input-bg: #3d3d3d;
+            --input-border: #4d4d4d;
+        }
+        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f0f0f0;
+            background-color: var(--bg-color);
             min-height: 100vh;
-            color: #333;
+            color: var(--text-color);
             padding: 20px;
         }
-
+        
         .container {
             max-width: 800px;
             margin: 0 auto;
         }
-
+        
         .header {
             text-align: center;
             margin-bottom: 40px;
         }
-
+        
         .title {
             font-size: 4rem;
             font-weight: 300;
@@ -36,28 +54,30 @@
             margin-bottom: 30px;
             text-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-
+        
         .search-container {
             display: flex;
             justify-content: center;
             margin-bottom: 50px;
             gap: 10px;
         }
-
+        
         .search-input {
             padding: 15px 20px;
             font-size: 18px;
-            border: 2px solid #ddd;
+            border: 2px solid var(--input-border);
             border-radius: 8px;
             width: 350px;
             outline: none;
             transition: border-color 0.3s ease;
+            background-color: var(--input-bg);
+            color: var(--text-color);
         }
-
+        
         .search-input:focus {
             border-color: #ff69b4;
         }
-
+        
         .search-btn {
             padding: 15px 25px;
             background: #ff69b4;
@@ -69,37 +89,37 @@
             cursor: pointer;
             transition: background-color 0.3s ease;
         }
-
+        
         .search-btn:hover {
             background: #ff1493;
         }
-
+        
         .search-btn:disabled {
             background: #ccc;
             cursor: not-allowed;
         }
-
+        
         .ranking-display {
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 0;
         }
-
+        
         .player-card {
             width: 450px;
-            height: 100px; /* Augmenté de 80px à 100px */
+            height: 100px;
             display: flex;
             align-items: center;
             border-radius: 12px;
-            padding: 20px 25px; /* Augmenté le padding */
-            margin: 3px 0; /* Augmenté la marge */
+            padding: 20px 25px;
+            margin: 3px 0;
             position: relative;
             transition: all 0.5s ease;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            background-color: var(--card-bg);
         }
-
-        /* Ajuster les tailles des cartes secondaires */
+        
         .player-card.rank-above-2 {
             width: 400px;
             height: 90px;
@@ -117,37 +137,37 @@
             height: 100px;
             transform: scale(1);
         }
-
+        
         .player-card.rank-below {
             width: 425px;
             height: 95px;
             transform: scale(0.95);
         }
-
+        
         .avatar-container {
             position: relative;
             margin-right: 15px;
         }
-
+        
         .player-avatar {
-            width: 60px; /* Augmenté de 50px à 60px */
+            width: 60px;
             height: 60px;
             border-radius: 8px;
-            background: #ccc;
+            background: var(--input-bg);
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 12px;
-            color: #666;
+            color: var(--text-color);
             overflow: hidden;
         }
-
+        
         .player-avatar img {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
-
+        
         .status-indicator {
             position: absolute;
             top: -5px;
@@ -155,47 +175,48 @@
             width: 16px;
             height: 16px;
             border-radius: 50%;
-            border: 2px solid white;
+            border: 2px solid var(--card-bg);
         }
-
+        
         .status-online {
             background: #4caf50;
             animation: pulse 2s infinite;
         }
-
+        
         .status-offline {
             background: #f44336;
         }
-
+        
         @keyframes pulse {
             0% { opacity: 1; }
             50% { opacity: 0.5; }
             100% { opacity: 1; }
         }
-
+        
         .player-info {
             flex: 1;
+            color: var(--text-color);
         }
-
+        
         .player-name {
             font-size: 18px;
             font-weight: 600;
             margin-bottom: 8px;
         }
-
+        
         .player-score {
             font-size: 15px;
             opacity: 0.9;
             margin-bottom: 4px;
         }
-
+        
         .player-rank {
             font-size: 32px;
             font-weight: 700;
             text-align: right;
             min-width: 100px;
         }
-
+        
         .score-difference {
             text-align: center;
             font-size: 16px;
@@ -207,167 +228,22 @@
             border-radius: 20px;
             display: inline-block;
         }
-
+        
         .score-difference.positive {
             color: #4caf50;
         }
-
+        
         .score-difference.negative {
             color: #f44336;
         }
-
-        .recent-activity {
-            font-size: 13px;
-            opacity: 0.8;
-            margin-top: 4px;
-        }
-
-        .score-animation {
-            position: absolute;
-            top: -30px;
-            right: 20px;
-            background: #4caf50;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 15px;
-            font-size: 14px;
-            font-weight: 600;
-            animation: scoreGain 3s ease-out forwards;
-            z-index: 100;
-        }
-
-        @keyframes scoreGain {
-            0% {
-                opacity: 0;
-                transform: translateY(15px) scale(0.8);
-            }
-            20% {
-                opacity: 1;
-                transform: translateY(-10px) scale(1.1);
-            }
-            80% {
-                opacity: 1;
-                transform: translateY(-20px) scale(1);
-            }
-            100% {
-                opacity: 0;
-                transform: translateY(-30px) scale(0.9);
-            }
-        }
-
-        .loading {
-            text-align: center;
-            padding: 40px;
-            font-size: 18px;
-            color: #666;
-        }
-
-        .error {
-            text-align: center;
-            padding: 20px;
-            background: #ffebee;
-            border-radius: 8px;
-            color: #c62828;
-            margin: 20px 0;
-        }
-
-        .api-setup {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 30px;
-            color: #856404;
-        }
-
-        .api-setup h3 {
-            margin-bottom: 10px;
-            color: #856404;
-        }
-
-        .api-input {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin-top: 10px;
-        }
-
-        .auth-button {
-            background: #ff69b4;
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            margin-top: 15px;
-            transition: background-color 0.3s ease;
-        }
-
-        .auth-button:hover {
-            background: #ff1493;
-        }
-
-        .auth-button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-
-        .auth-status {
-            padding: 10px;
-            margin-top: 10px;
-            border-radius: 6px;
-            font-weight: 600;
-        }
-
-        .auth-status.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .auth-status.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .refresh-info {
-            text-align: center;
-            margin-top: 20px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            color: #666;
-        }
-
-        .country-flag {
-            width: 20px;
-            height: 15px;
-            margin-right: 8px;
-            border-radius: 2px;
-            vertical-align: middle;
-        }
-
-        .pp-info {
-            font-size: 13px;
-            opacity: 0.8;
-            margin-top: 2px;
-        }
-
-        .hidden {
-            display: none;
-        }
-
+        
         .update-interval-config {
             text-align: center;
             margin: 20px 0;
             padding: 15px;
-            background: #f8f9fa;
+            background-color: var(--card-bg);
             border-radius: 8px;
-            color: #666;
+            color: var(--text-color);
         }
         
         .update-interval-config label {
@@ -385,48 +261,93 @@
             font-weight: 600;
             color: #ff69b4;
         }
+        
+        .theme-toggle {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .theme-toggle button {
+            background: #ff69b4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        .site-footer {
+            text-align: center;
+            padding: 20px;
+            margin-top: 40px;
+            border-top: 1px solid var(--input-border);
+            color: var(--text-color);
+        }
+        
+        .site-footer a {
+            color: #ff69b4;
+            text-decoration: none;
+        }
+        
+        .site-footer a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1 class="title">osu! live scorer</h1>
-            
-            <div class="api-setup" id="setupSection">
-                <h3>🔑 Configuration API osu!</h3>
-                <p><strong>Étape 1:</strong> Allez sur <a href="https://osu.ppy.sh/home/account/edit#oauth" target="_blank">osu.ppy.sh/home/account/edit#oauth</a></p>
-                <p><strong>Étape 2:</strong> Créez une nouvelle application OAuth et récupérez les informations suivantes:</p>
-                <div style="display: flex; gap: 10px; margin-top: 15px;">
-                    <div style="flex: 1;">
-                        <label>Client ID:</label>
-                        <input type="text" id="clientId" class="api-input" placeholder="Votre Client ID">
-                    </div>
-                    <div style="flex: 1;">
-                        <label>Client Secret:</label>
-                        <input type="password" id="clientSecret" class="api-input" placeholder="Votre Client Secret">
-                    </div>
+    <!-- Remplacer le contenu HTML existant -->
+<div class="container">
+    <div class="header">
+        <h1 class="title">osu! live scorer</h1>
+        
+        <div class="api-setup" id="setupSection">
+            <h3>🔑 osu! API Setup</h3>
+            <p><strong>Step 1:</strong> Go to <a href="https://osu.ppy.sh/home/account/edit#oauth" target="_blank">osu.ppy.sh/home/account/edit#oauth</a></p>
+            <p><strong>Step 2:</strong> Create a new OAuth application and get the following information:</p>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <div style="flex: 1;">
+                    <label>Client ID:</label>
+                    <input type="text" id="clientId" class="api-input" placeholder="Your Client ID">
                 </div>
-                <button id="authorizeBtn" class="auth-button">🔐 Connecter à osu!</button>
-                <div id="authStatus" class="auth-status hidden"></div>
+                <div style="flex: 1;">
+                    <label>Client Secret:</label>
+                    <input type="password" id="clientSecret" class="api-input" placeholder="Your Client Secret">
+                </div>
             </div>
-            <div class="search-container">
-                <input type="text" id="playerSearch" class="search-input" placeholder="Nom du joueur osu!">
-                <button id="searchBtn" class="search-btn">🔍 Rechercher</button>
-            </div>
+            <button id="authorizeBtn" class="auth-button">🔐 Connect to osu!</button>
+            <div id="authStatus" class="auth-status hidden"></div>
         </div>
-
-        <div id="rankingDisplay" class="ranking-display">
-            <div class="loading">
-                👋 Configurez l'API et entrez un nom de joueur pour commencer !
-            </div>
-        </div>
-
-        <div class="update-interval-config">
-            <label for="updateInterval">⚡ Intervalle de mise à jour:</label>
-            <input type="range" id="updateInterval" min="10" max="60" value="30">
-            <span id="intervalValue">30</span> secondes
+        <div class="search-container">
+            <input type="text" id="playerSearch" class="search-input" placeholder="osu! player name">
+            <button id="searchBtn" class="search-btn">🔍 Search</button>
         </div>
     </div>
+
+    <div id="rankingDisplay" class="ranking-display">
+        <div class="loading">
+            👋 Configure the API and enter a player name to start!
+        </div>
+    </div>
+
+    <div class="update-interval-config">
+        <label for="updateInterval">⚡ Update interval:</label>
+        <input type="range" id="updateInterval" min="10" max="60" value="30">
+        <span id="intervalValue">30</span> seconds
+    </div>
+
+    <div class="refresh-info">
+        <p>🔄 Data updates automatically</p>
+    </div>
+
+    <div class="theme-toggle">
+        <button id="themeToggle">🌓 Toggle Dark Mode</button>
+    </div>
+
+    <footer class="site-footer">
+        <p>Code written by Claude 3.5 using <a href="https://osu.ppy.sh/users/9358042" target="_blank">byo' idea</a></p>
+    </footer>
+</div>
 
     <script>
         class OsuScoreTracker {
@@ -446,6 +367,7 @@
                 this.initializeEventListeners();
                 this.loadSavedCredentials();
                 this.initializeUpdateInterval();
+                this.initializeThemeToggle();
             }
 
             initializeUpdateInterval() {
@@ -538,6 +460,22 @@
                 });
             
                 console.log('Événements initialisés avec succès');
+            }
+
+            initializeThemeToggle() {
+                const themeToggle = document.getElementById('themeToggle');
+                
+                // Charger le thème sauvegardé
+                const savedTheme = localStorage.getItem('theme') || 'light';
+                document.documentElement.setAttribute('data-theme', savedTheme);
+                
+                themeToggle.addEventListener('click', () => {
+                    const currentTheme = document.documentElement.getAttribute('data-theme');
+                    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                    
+                    document.documentElement.setAttribute('data-theme', newTheme);
+                    localStorage.setItem('theme', newTheme);
+                });
             }
 
             loadSavedCredentials() {
@@ -913,6 +851,14 @@
                     card.classList.add('rank-below');
                 }
             
+                // Vérifier le statut en ligne
+                this.isPlayerOnline(player.id).then(isOnline => {
+                    const statusIndicator = card.querySelector('.status-indicator');
+                    if (statusIndicator) {
+                        statusIndicator.className = `status-indicator ${isOnline ? 'status-online' : 'status-offline'}`;
+                    }
+                });
+            
                 const isOnline = this.isPlayerOnline(player.statistics.last_visit);
                 const lastActivity = this.getLastActivityText(player.statistics.last_visit);
                 const countryFlag = player.country ? `https://osu.ppy.sh/images/flags/${player.country.code}.png` : '';
@@ -957,12 +903,14 @@
                 return diff;
             }
 
-            isPlayerOnline(lastVisit) {
-                if (!lastVisit) return false;
-                const lastVisitTime = new Date(lastVisit);
-                const now = new Date();
-                const diffMinutes = (now - lastVisitTime) / (1000 * 60);
-                return diffMinutes <= 10;
+            async isPlayerOnline(userId) {
+                try {
+                    const response = await this.makeApiRequest(`/users/${userId}/is_online`);
+                    return response.is_online;
+                } catch (error) {
+                    console.error('Error checking online status:', error);
+                    return false;
+                }
             }
 
             getLastActivityText(lastVisit) {
