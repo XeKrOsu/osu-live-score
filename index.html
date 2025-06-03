@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Osu! Live Scorer</title>
+    <title>osu! Live Scorer</title>
+    <link rel="icon" type="image/png" href="favicon.png">
     <style>
         * {
             margin: 0;
@@ -988,7 +989,7 @@
                 });
             }
 
-            createPlayerCard(player, index) {
+            async createPlayerCard(player, index) {
                 const card = document.createElement('div');
                 card.className = 'player-card';
                 
@@ -1000,21 +1001,8 @@
                     card.classList.add('rank-below');
                 }
             
-                // Vérifier le statut en ligne
-                this.isPlayerOnline(player.id).then(isOnline => {
-                    const statusIndicator = card.querySelector('.status-indicator');
-                    if (statusIndicator) {
-                        statusIndicator.className = `status-indicator ${isOnline ? 'status-online' : 'status-offline'}`;
-                    }
-                });
-            
-                const isOnline = this.isPlayerOnline(player.statistics.last_visit);
-                const lastActivity = this.getLastActivityText(player.statistics.last_visit);
+                const isOnline = await this.isPlayerOnline(player.id);
                 const countryFlag = player.country ? `https://osu.ppy.sh/images/flags/${player.country.code}.png` : '';
-            
-                // Utiliser la propriété ranked_score directement depuis les statistiques du joueur
-                const rankedScore = player.statistics.ranked_score;
-                console.log('Score pour', player.username, ':', rankedScore);
             
                 card.innerHTML = `
                     <div class="avatar-container">
@@ -1031,23 +1019,23 @@
                             ${countryFlag ? `<img src="${countryFlag}" class="country-flag" alt="${player.country?.name || ''}" onerror="this.style.display='none';">` : ''}
                             ${player.username}
                         </div>
-                        <div class="player-score">Score classé : ${this.formatNumber(rankedScore)}</div>
+                        <div class="player-score">Ranked Score: ${this.formatNumber(player.statistics.ranked_score)}</div>
                         ${player.statistics.pp ? `<div class="pp-info">${this.formatNumber(player.statistics.pp)}pp</div>` : ''}
-                        <div class="recent-activity">${lastActivity}</div>
+                        <div class="recent-activity">${isOnline ? '🟢 Online' : '⚫ Offline'}</div>
                     </div>
                     <div class="player-rank">#${player.statistics.global_rank}</div>
                 `;
             
-                this.lastScores.set(player.id, rankedScore);
+                this.lastScores.set(player.id, player.statistics.ranked_score);
                 return card;
             }
 
             createScoreDifference(player1, player2) {
                 const diff = document.createElement('div');
-                const scoreDiff = player1.statistics.ranked_score - player2.statistics.ranked_score;
+                const scoreDiff = player2.statistics.ranked_score - player1.statistics.ranked_score;
                 
-                diff.className = `score-difference ${scoreDiff > 0 ? 'positive' : 'negative'}`;
-                diff.textContent = `${scoreDiff > 0 ? '+' : '-'}${this.formatNumber(Math.abs(scoreDiff))}`;
+                diff.className = 'score-difference negative';
+                diff.textContent = `-${this.formatNumber(Math.abs(scoreDiff))}`;
                 
                 return diff;
             }
