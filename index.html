@@ -1074,10 +1074,22 @@
             createScoreDifference(player1, player2) {
                 try {
                     const diff = document.createElement('div');
-                    const scoreDiff = player2.statistics.ranked_score - player1.statistics.ranked_score;
+                    let scoreDiff;
                     
-                    diff.className = 'score-difference negative';
-                    diff.textContent = `-${this.formatNumber(Math.abs(scoreDiff))}`;
+                    // Pour le joueur N+1 (joueur au-dessus du joueur principal)
+                    if (player2.statistics.global_rank < player1.statistics.global_rank) {
+                        // Différence positive car c'est ce qu'il faut gagner pour monter
+                        scoreDiff = player2.statistics.ranked_score - player1.statistics.ranked_score;
+                        diff.className = 'score-difference positive';
+                        diff.textContent = `+${this.formatNumber(Math.abs(scoreDiff))}`;
+                    }
+                    // Pour le joueur N-1 (joueur en-dessous du joueur principal)
+                    else {
+                        // Différence négative car c'est ce qu'il faut perdre pour descendre
+                        scoreDiff = player1.statistics.ranked_score - player2.statistics.ranked_score;
+                        diff.className = 'score-difference negative';
+                        diff.textContent = `-${this.formatNumber(Math.abs(scoreDiff))}`;
+                    }
                     
                     return diff;
                 } catch (error) {
