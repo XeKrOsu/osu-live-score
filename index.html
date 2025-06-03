@@ -848,12 +848,17 @@
                     };
             
                     // Recherche bidirectionnelle complète
-                    const searchInRankings = async (direction) => {
+                    const searchInRankings = async (direction, signal) => {
                         const isForward = direction === 'forward';
                         let page = isForward ? 1 : 200;
                         const endPage = isForward ? 200 : 1;
                         
                         while (isForward ? page <= endPage : page >= endPage) {
+                            if (signal.aborted) {
+                                console.log(`🛑 Recherche ${direction} arrêtée car l'autre recherche a trouvé le joueur`);
+                                return null;
+                            }
+                
                             try {
                                 console.log(`${direction === 'forward' ? '⬆️' : '⬇️'} Recherche sur la page ${page}...`);
                                 const response = await this.makeApiRequest(`/rankings/osu/score?cursor[page]=${page}&limit=50`);
@@ -862,48 +867,53 @@
                                     console.error('Format de réponse invalide:', response);
                                     continue;
                                 }
-            
-                                const playerIndex = response.ranking.findIndex(p => isMatchingPlayer(p, mainPlayer.id));
+                
+                                const playerIndex = response.ranking.findIndex(p => p.user && p.user.id === mainPlayer.id);
                                 
                                 if (playerIndex !== -1) {
                                     console.log(`✅ Joueur trouvé à la page ${page}, position ${playerIndex + 1}`);
+                                    abortController.abort();
+                
                                     const foundPlayer = response.ranking[playerIndex];
                                     const playerRank = (page - 1) * 50 + playerIndex + 1;
-            
+                
                                     const rankData = {
                                         player: {
                                             rank: playerRank,
                                             score: foundPlayer.ranked_score,
                                             user_id: mainPlayer.id,
-                                            username: mainPlayer.username
+                                            username: mainPlayer.username,
+                                            global_rank: foundPlayer.user.global_rank // Ajouter le rang global
                                         }
                                     };
-            
-                                    // Joueur précédent (rang inférieur)
-                                    if (playerIndex < response.ranking.length - 1) {
-                                        const prevPlayer = response.ranking[playerIndex + 1];
-                                        rankData.prev = {
-                                            user_id: prevPlayer.user.id,
-                                            score: prevPlayer.ranked_score,
-                                            username: prevPlayer.user.username,
-                                            rank: playerRank + 1
-                                        };
-                                    }
-            
-                                    // Joueur suivant (rang supérieur)
+                
+                                    // Joueur précédent (rang inférieur, meilleur rang)
                                     if (playerIndex > 0) {
-                                        const nextPlayer = response.ranking[playerIndex - 1];
+                                        const betterPlayer = response.ranking[playerIndex - 1];
                                         rankData.next = {
-                                            user_id: nextPlayer.user.id,
-                                            score: nextPlayer.ranked_score,
-                                            username: nextPlayer.user.username,
-                                            rank: playerRank - 1
+                                            user_id: betterPlayer.user.id,
+                                            score: betterPlayer.ranked_score,
+                                            username: betterPlayer.user.username,
+                                            rank: playerRank - 1,
+                                            global_rank: betterPlayer.user.global_rank
                                         };
                                     }
-            
+                
+                                    // Joueur suivant (rang supérieur, moins bon rang)
+                                    if (playerIndex < response.ranking.length - 1) {
+                                        const worsePlayer = response.ranking[playerIndex + 1];
+                                        rankData.prev = {
+                                            user_id: worsePlayer.user.id,
+                                            score: worsePlayer.ranked_score,
+                                            username: worsePlayer.user.username,
+                                            rank: playerRank + 1,
+                                            global_rank: worsePlayer.user.global_rank
+                                        };
+                                    }
+                
                                     mainPlayer.statistics.ranked_score = foundPlayer.ranked_score;
                                     mainPlayer.statistics.global_rank = playerRank;
-            
+                
                                     return { mainPlayer, rankData };
                                 }
                             } catch (error) {
@@ -1150,30 +1160,26 @@
                 return card;
             }
 
-            createScoreDifference(player1, player2) {
+            createScoreDifference(currentPlayer, otherPlayer) {
                 try {
                     const diff = document.createElement('div');
-                    let scoreDiff;
+                    const scoreDiff = currentPlayer.ranked_score - otherPlayer.ranked_score;
                     
-                    // Pour le joueur N+1 (joueur au-dessus du joueur principal)
-                    if (player2.statistics.global_rank < player1.statistics.global_rank) {
-                        // Différence positive car c'est ce qu'il faut gagner pour monter
-                        scoreDiff = player2.statistics.ranked_score - player1.statistics.ranked_score;
-                        diff.className = 'score-difference positive';
-                        diff.textContent = `+${this.formatNumber(Math.abs(scoreDiff))}`;
-                    }
-                    // Pour le joueur N-1 (joueur en-dessous du joueur principal)
-                    else {
-                        // Différence négative car c'est ce qu'il faut perdre pour descendre
-                        scoreDiff = player1.statistics.ranked_score - player2.statistics.ranked_score;
+                    // Si le joueur otherPlayer a un rang plus petit (meilleur), la différence doit être négative
+                    if (otherPlayer.global_rank < currentPlayer.global_rank) {
                         diff.className = 'score-difference negative';
                         diff.textContent = `-${this.formatNumber(Math.abs(scoreDiff))}`;
+                    } 
+                    // Si le joueur otherPlayer a un rang plus grand (moins bon), la différence doit être positive
+                    else {
+                        diff.className = 'score-difference positive';
+                        diff.textContent = `+${this.formatNumber(Math.abs(scoreDiff))}`;
                     }
                     
                     return diff;
                 } catch (error) {
                     console.error('Error creating score difference:', error);
-                    return document.createElement('div'); // Retourner un div vide en cas d'erreur
+                    return document.createElement('div');
                 }
             }
 
