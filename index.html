@@ -968,7 +968,7 @@
                 try {
                     const players = [];
                     
-                    // Joueur suivant (meilleur rang, score plus élevé)
+                    // Joueur suivant (meilleur rang)
                     if (rankData.next) {
                         try {
                             const nextPlayerData = await this.makeApiRequest(`/users/${rankData.next.user_id}/osu`);
@@ -977,8 +977,9 @@
                                 statistics: {
                                     ...nextPlayerData.statistics,
                                     ranked_score: rankData.next.score,
-                                    global_rank: rankData.next.rank // Utiliser le rank fourni par l'API
-                                }
+                                    global_rank: rankData.next.rank
+                                },
+                                is_online: await this.getPlayerStatus(rankData.next.user_id) // Ajout du statut
                             };
                             players.push(nextPlayer);
                         } catch (error) {
@@ -987,9 +988,10 @@
                     }
                     
                     // Joueur principal
+                    mainPlayer.is_online = await this.getPlayerStatus(mainPlayer.id); // Ajout du statut
                     players.push(mainPlayer);
                     
-                    // Joueur précédent (moins bon rang, score plus bas)
+                    // Joueur précédent (moins bon rang)
                     if (rankData.prev) {
                         try {
                             const prevPlayerData = await this.makeApiRequest(`/users/${rankData.prev.user_id}/osu`);
@@ -998,21 +1000,59 @@
                                 statistics: {
                                     ...prevPlayerData.statistics,
                                     ranked_score: rankData.prev.score,
-                                    global_rank: rankData.prev.rank // Utiliser le rank fourni par l'API
-                                }
+                                    global_rank: rankData.prev.rank
+                                },
+                                is_online: await this.getPlayerStatus(rankData.prev.user_id) // Ajout du statut
                             };
                             players.push(prevPlayer);
                         } catch (error) {
                             console.error('Erreur lors de la récupération du joueur précédent:', error);
                         }
                     }
+            
+                    // Mise à jour de l'affichage
+                    const displayElement = document.getElementById('rankingDisplay');
+                    displayElement.innerHTML = '';
                     
-                    this.playerData = players;
-                    this.renderPlayerCards();
+                    let previousPlayer = null;
+                    for (let i = 0; i < players.length; i++) {
+                        const player = players[i];
+                        const playerCard = this.createPlayerCard(player);
+                        
+                        // Ajouter la différence de score
+                        if (previousPlayer) {
+                            const scoreDiff = document.createElement('div');
+                            const difference = previousPlayer.statistics.ranked_score - player.statistics.ranked_score;
+                            scoreDiff.className = 'score-difference';
+                            if (previousPlayer.statistics.global_rank < player.statistics.global_rank) {
+                                // Le joueur précédent est mieux classé
+                                scoreDiff.classList.add('negative');
+                                scoreDiff.textContent = `-${this.formatNumber(Math.abs(difference))}`;
+                            } else {
+                                // Le joueur précédent est moins bien classé
+                                scoreDiff.classList.add('positive');
+                                scoreDiff.textContent = `+${this.formatNumber(Math.abs(difference))}`;
+                            }
+                            displayElement.appendChild(scoreDiff);
+                        }
+                        
+                        displayElement.appendChild(playerCard);
+                        previousPlayer = player;
+                    }
                     
                 } catch (error) {
-                    console.error('Erreur lors de la récupération du classement:', error);
-                    this.showError('Erreur lors de la récupération du classement: ' + error.message);
+                    console.error('Erreur lors de l\'affichage du classement:', error);
+                    this.showError('Erreur lors de l\'affichage du classement');
+                }
+            }
+
+            async getPlayerStatus(userId) {
+                try {
+                    const response = await this.makeApiRequest(`/users/${userId}`);
+                    return response.is_online || false;
+                } catch (error) {
+                    console.error('Erreur lors de la récupération du statut:', error);
+                    return false;
                 }
             }
 
@@ -1126,44 +1166,69 @@
                 }
             }
 
-            async createPlayerCard(player, index) {
+            createPlayerCard(player) {
                 const card = document.createElement('div');
                 card.className = 'player-card';
                 
-                if (index === 0) card.classList.add('rank-above-1');
-                else if (index === 1) {
+                // Ajouter les classes pour le positionnement
+                if (player.id === this.currentPlayer.id) {
                     card.classList.add('main');
-                    this.currentPlayer = player;
+                } else if (player.statistics.global_rank < this.currentPlayer.statistics.global_rank) {
+                    card.classList.add('rank-above-1');
                 } else {
                     card.classList.add('rank-below');
                 }
-            
-                const isOnline = await this.isPlayerOnline(player.id);
-                const countryFlag = player.country ? `https://osu.ppy.sh/images/flags/${player.country.code}.png` : '';
-            
-                card.innerHTML = `
-                    <div class="avatar-container">
-                        <div class="player-avatar">
-                            ${player.avatar_url ? 
-                                `<img src="${player.avatar_url}" alt="Avatar" onerror="this.style.display='none'; this.parentNode.innerHTML='<span>👤</span>';">` : 
-                                '<span style="font-size: 24px;">👤</span>'
-                            }
-                        </div>
-                        <div class="status-indicator ${isOnline ? 'status-online' : 'status-offline'}"></div>
-                    </div>
-                    <div class="player-info">
-                        <div class="player-name">
-                            ${countryFlag ? `<img src="${countryFlag}" class="country-flag" alt="${player.country?.name || ''}" onerror="this.style.display='none';">` : ''}
-                            ${player.username}
-                        </div>
-                        <div class="player-score">Ranked Score: ${this.formatNumber(player.statistics.ranked_score)}</div>
-                        ${player.statistics.pp ? `<div class="pp-info">${this.formatNumber(player.statistics.pp)}pp</div>` : ''}
-                        <div class="recent-activity">${isOnline ? '🟢 Online' : '⚫ Offline'}</div>
-                    </div>
-                    <div class="player-rank">#${player.statistics.global_rank}</div>
-                `;
-            
-                this.lastScores.set(player.id, player.statistics.ranked_score);
+                
+                const avatar = document.createElement('div');
+                avatar.className = 'avatar-container';
+                
+                const avatarImg = document.createElement('div');
+                avatarImg.className = 'player-avatar';
+                if (player.avatar_url) {
+                    const img = document.createElement('img');
+                    img.src = player.avatar_url;
+                    img.alt = player.username;
+                    avatarImg.appendChild(img);
+                }
+                
+                const statusDot = document.createElement('div');
+                statusDot.className = `status-indicator ${player.is_online ? 'status-online' : 'status-offline'}`;
+                avatar.appendChild(avatarImg);
+                avatar.appendChild(statusDot);
+                
+                const info = document.createElement('div');
+                info.className = 'player-info';
+                
+                const name = document.createElement('div');
+                name.className = 'player-name';
+                if (player.country && player.country.code) {
+                    const flag = document.createElement('img');
+                    flag.src = `https://osu.ppy.sh/images/flags/${player.country.code}.png`;
+                    flag.className = 'country-flag';
+                    name.appendChild(flag);
+                }
+                name.appendChild(document.createTextNode(player.username));
+                
+                const score = document.createElement('div');
+                score.className = 'player-score';
+                score.textContent = `Ranked Score: ${this.formatNumber(player.statistics.ranked_score)}`;
+                
+                const pp = document.createElement('div');
+                pp.className = 'player-pp';
+                pp.textContent = `${player.statistics.pp.toFixed(2)}pp`;
+                
+                info.appendChild(name);
+                info.appendChild(score);
+                info.appendChild(pp);
+                
+                const rank = document.createElement('div');
+                rank.className = 'player-rank';
+                rank.textContent = `#${player.statistics.global_rank}`;
+                
+                card.appendChild(avatar);
+                card.appendChild(info);
+                card.appendChild(rank);
+                
                 return card;
             }
 
