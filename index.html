@@ -390,12 +390,39 @@
             border-radius: 2px;
             vertical-align: middle;
         }
+
+        .error-message {
+            background-color: var(--card-bg);
+            color: #ff4444;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin: 10px 0;
+            text-align: center;
+            font-weight: 500;
+            border: 1px solid rgba(255, 68, 68, 0.2);
+        }
         
         .loading {
-            text-align: center;
-            padding: 40px;
-            font-size: 18px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            padding: 30px;
             color: var(--text-color);
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--input-border);
+            border-top: 4px solid #ff69b4;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
         
         .refresh-info {
@@ -1145,24 +1172,40 @@
                 return num.toLocaleString('fr-FR');
             }
 
-            showLoading(message = 'Chargement...') {
-                document.getElementById('rankingDisplay').innerHTML = `<div class="loading">⏳ ${message}</div>`;
+            showLoading(message) {
+                const container = document.getElementById('rankingDisplay');
+                container.innerHTML = '';
+            
+                const loadingDiv = document.createElement('div');
+                loadingDiv.className = 'loading';
+                loadingDiv.innerHTML = `<div class="loading-spinner"></div>${message}`;
+                
+                container.appendChild(loadingDiv);
             }
 
             showError(message) {
-                document.getElementById('rankingDisplay').innerHTML = `<div class="error">❌ ${message}</div>`;
+                const container = document.getElementById('rankingDisplay');
+                container.innerHTML = '';
+            
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-message';
+                errorDiv.innerHTML = `❌ ${message}`;
+                
+                container.appendChild(errorDiv);
             }
 
-            showAuthStatus(message, type) {
-                const statusElement = document.getElementById('authStatus');
-                statusElement.textContent = message;
-                statusElement.className = `auth-status ${type}`;
-                statusElement.classList.remove('hidden');
-                
+            showAuthStatus(message, type = 'info') {
+                const statusDiv = document.getElementById('authStatus');
+                if (!statusDiv) return;
+            
+                statusDiv.className = `auth-status ${type}`;
+                statusDiv.textContent = message;
+                statusDiv.classList.remove('hidden');
+            
                 if (type === 'success') {
                     setTimeout(() => {
-                        statusElement.classList.add('hidden');
-                    }, 5000);
+                        statusDiv.classList.add('hidden');
+                    }, 3000);
                 }
             }
 
