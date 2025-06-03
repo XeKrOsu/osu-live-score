@@ -1001,19 +1001,33 @@
                 };
             }
 
-            renderPlayerCards() {
-                const container = document.getElementById('rankingDisplay');
-                container.innerHTML = '';
-
-                this.playerData.forEach((player, index) => {
-                    const card = this.createPlayerCard(player, index);
-                    container.appendChild(card);
-
-                    if (index < this.playerData.length - 1) {
-                        const diff = this.createScoreDifference(player, this.playerData[index + 1]);
-                        container.appendChild(diff);
+            async renderPlayerCards() {
+                try {
+                    const container = document.getElementById('rankingDisplay');
+                    if (!container) {
+                        console.error('Container not found');
+                        return;
                     }
-                });
+                    container.innerHTML = '';
+            
+                    for (let i = 0; i < this.playerData.length; i++) {
+                        const player = this.playerData[i];
+                        try {
+                            const card = await this.createPlayerCard(player, i);
+                            container.appendChild(card);
+            
+                            if (i < this.playerData.length - 1) {
+                                const diff = this.createScoreDifference(player, this.playerData[i + 1]);
+                                container.appendChild(diff);
+                            }
+                        } catch (error) {
+                            console.error('Error creating player card:', error);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error rendering player cards:', error);
+                    this.showError('Une erreur est survenue lors de l\'affichage des joueurs');
+                }
             }
 
             async createPlayerCard(player, index) {
@@ -1058,22 +1072,29 @@
             }
 
             createScoreDifference(player1, player2) {
-                const diff = document.createElement('div');
-                const scoreDiff = player2.statistics.ranked_score - player1.statistics.ranked_score;
-                
-                diff.className = 'score-difference negative';
-                diff.textContent = `-${this.formatNumber(Math.abs(scoreDiff))}`;
-                
-                return diff;
+                try {
+                    const diff = document.createElement('div');
+                    const scoreDiff = player2.statistics.ranked_score - player1.statistics.ranked_score;
+                    
+                    diff.className = 'score-difference negative';
+                    diff.textContent = `-${this.formatNumber(Math.abs(scoreDiff))}`;
+                    
+                    return diff;
+                } catch (error) {
+                    console.error('Error creating score difference:', error);
+                    return document.createElement('div'); // Retourner un div vide en cas d'erreur
+                }
             }
 
             async isPlayerOnline(userId) {
+                if (!userId) return false;
+                
                 try {
                     const response = await this.makeApiRequest(`/users/${userId}/is_online`);
-                    return response.is_online;
+                    return response?.is_online || false;
                 } catch (error) {
                     console.error('Error checking online status:', error);
-                    return false;
+                    return false; // En cas d'erreur, on considère le joueur hors ligne
                 }
             }
 
@@ -1173,25 +1194,42 @@
             }
 
             showLoading(message) {
-                const container = document.getElementById('rankingDisplay');
-                container.innerHTML = '';
-            
-                const loadingDiv = document.createElement('div');
-                loadingDiv.className = 'loading';
-                loadingDiv.innerHTML = `<div class="loading-spinner"></div>${message}`;
-                
-                container.appendChild(loadingDiv);
+                try {
+                    const container = document.getElementById('rankingDisplay');
+                    if (!container) return;
+                    
+                    const loadingDiv = document.createElement('div');
+                    loadingDiv.className = 'loading';
+                    
+                    const spinner = document.createElement('div');
+                    spinner.className = 'loading-spinner';
+                    
+                    const messageDiv = document.createElement('div');
+                    messageDiv.textContent = message;
+                    
+                    loadingDiv.appendChild(spinner);
+                    loadingDiv.appendChild(messageDiv);
+                    
+                    container.innerHTML = '';
+                    container.appendChild(loadingDiv);
+                } catch (error) {
+                    console.error('Error showing loading message:', error);
+                }
             }
 
             showError(message) {
-                const container = document.getElementById('rankingDisplay');
-                container.innerHTML = '';
-            
-                const errorDiv = document.createElement('div');
-                errorDiv.className = 'error-message';
-                errorDiv.innerHTML = `❌ ${message}`;
-                
-                container.appendChild(errorDiv);
+                try {
+                    const container = document.getElementById('rankingDisplay');
+                    if (!container) return;
+                    
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'error-message';
+                    errorDiv.textContent = `❌ ${message}`; // Utiliser textContent au lieu de innerHTML
+                    container.innerHTML = ''; // Vider le container avant d'ajouter l'erreur
+                    container.appendChild(errorDiv);
+                } catch (error) {
+                    console.error('Error showing error message:', error);
+                }
             }
 
             showAuthStatus(message, type = 'info') {
