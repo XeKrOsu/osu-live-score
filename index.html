@@ -842,28 +842,46 @@
                         throw new Error('Joueur non trouvé ou données incomplètes.');
                     }
             
-                    // Lancer la recherche dans le classement
-                    const searchFromStart = async () => {
-                        for (let page = 1; page <= 200; page++) {
+                    // Fonction pour comparer les joueurs
+                    const isMatchingPlayer = (rankingPlayer, targetId) => {
+                        return rankingPlayer.user && rankingPlayer.user.id === targetId;
+                    };
+            
+                    // Recherche bidirectionnelle complète
+                    const searchInRankings = async (direction) => {
+                        const isForward = direction === 'forward';
+                        let page = isForward ? 1 : 200;
+                        const endPage = isForward ? 200 : 1;
+                        
+                        while (isForward ? page <= endPage : page >= endPage) {
                             try {
+                                console.log(`${direction === 'forward' ? '⬆️' : '⬇️'} Recherche sur la page ${page}...`);
                                 const response = await this.makeApiRequest(`/rankings/osu/score?cursor[page]=${page}&limit=50`);
-                                const rankingList = response.ranking;
-                                const playerIndex = rankingList.findIndex(p => p.user.id === mainPlayer.id);
+                                
+                                if (!response || !response.ranking || !Array.isArray(response.ranking)) {
+                                    console.error('Format de réponse invalide:', response);
+                                    continue;
+                                }
+            
+                                const playerIndex = response.ranking.findIndex(p => isMatchingPlayer(p, mainPlayer.id));
                                 
                                 if (playerIndex !== -1) {
+                                    console.log(`✅ Joueur trouvé à la page ${page}, position ${playerIndex + 1}`);
+                                    const foundPlayer = response.ranking[playerIndex];
                                     const playerRank = (page - 1) * 50 + playerIndex + 1;
+            
                                     const rankData = {
                                         player: {
                                             rank: playerRank,
-                                            score: rankingList[playerIndex].ranked_score,
+                                            score: foundPlayer.ranked_score,
                                             user_id: mainPlayer.id,
                                             username: mainPlayer.username
                                         }
                                     };
             
-                                    // Ajouter le joueur précédent si disponible
-                                    if (playerIndex < rankingList.length - 1) {
-                                        const prevPlayer = rankingList[playerIndex + 1];
+                                    // Joueur précédent (rang inférieur)
+                                    if (playerIndex < response.ranking.length - 1) {
+                                        const prevPlayer = response.ranking[playerIndex + 1];
                                         rankData.prev = {
                                             user_id: prevPlayer.user.id,
                                             score: prevPlayer.ranked_score,
@@ -872,9 +890,9 @@
                                         };
                                     }
             
-                                    // Ajouter le joueur suivant si disponible
+                                    // Joueur suivant (rang supérieur)
                                     if (playerIndex > 0) {
-                                        const nextPlayer = rankingList[playerIndex - 1];
+                                        const nextPlayer = response.ranking[playerIndex - 1];
                                         rankData.next = {
                                             user_id: nextPlayer.user.id,
                                             score: nextPlayer.ranked_score,
@@ -883,43 +901,42 @@
                                         };
                                     }
             
-                                    // Mettre à jour les statistiques du joueur principal
-                                    mainPlayer.statistics.ranked_score = rankingList[playerIndex].ranked_score;
+                                    mainPlayer.statistics.ranked_score = foundPlayer.ranked_score;
                                     mainPlayer.statistics.global_rank = playerRank;
             
                                     return { mainPlayer, rankData };
                                 }
                             } catch (error) {
+                                console.error(`❌ Erreur sur la page ${page}:`, error);
                                 if (error.message.includes('Too many subrequests')) {
+                                    console.log('⏳ Pause de 1 seconde pour respecter les limites de l\'API...');
                                     await new Promise(resolve => setTimeout(resolve, 1000));
                                     continue;
                                 }
                                 throw error;
                             }
+                            page += isForward ? 1 : -1;
                         }
                         return null;
                     };
             
-                    // Lancer la recherche depuis la fin
-                    const searchFromEnd = async () => {
-                        // Même logique que searchFromStart mais en partant de la page 200
-                        for (let page = 200; page >= 1; page--) {
-                            // ... même code que searchFromStart ...
-                        }
-                        return null;
-                    };
+                    // Lancer les deux recherches en parallèle
+                    console.log('🔍 Démarrage de la recherche bidirectionnelle...');
+                    const [resultFromStart, resultFromEnd] = await Promise.all([
+                        searchInRankings('forward'),
+                        searchInRankings('backward')
+                    ]).catch(error => {
+                        console.error('❌ Erreur lors de la recherche parallèle:', error);
+                        throw error;
+                    });
             
-                    // Exécuter les deux recherches en parallèle
-                    const result = await Promise.race([
-                        searchFromStart(),
-                        searchFromEnd()
-                    ]);
+                    const result = resultFromStart || resultFromEnd;
             
                     if (!result) {
                         throw new Error('Impossible de trouver le joueur dans le classement.');
                     }
             
-                    // Afficher les résultats
+                    console.log('✨ Joueur trouvé, affichage des résultats...');
                     this.currentPlayer = result.mainPlayer;
                     await this.displayRanking(result.mainPlayer, result.rankData);
                     this.startLiveUpdates();
