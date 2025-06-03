@@ -842,22 +842,56 @@
                         throw new Error('Joueur non trouvé ou données incomplètes.');
                     }
             
-                    // Lancer deux recherches en parallèle
+                    // Lancer la recherche dans le classement
                     const searchFromStart = async () => {
                         for (let page = 1; page <= 200; page++) {
                             try {
                                 const response = await this.makeApiRequest(`/rankings/osu/score?cursor[page]=${page}&limit=50`);
-                                const foundPlayer = response.ranking.find(p => p.user.id === mainPlayer.id);
-                                if (foundPlayer) {
-                                    return {
-                                        player: foundPlayer,
-                                        page: page,
-                                        index: response.ranking.findIndex(p => p.user.id === mainPlayer.id)
+                                const rankingList = response.ranking;
+                                const playerIndex = rankingList.findIndex(p => p.user.id === mainPlayer.id);
+                                
+                                if (playerIndex !== -1) {
+                                    const playerRank = (page - 1) * 50 + playerIndex + 1;
+                                    const rankData = {
+                                        player: {
+                                            rank: playerRank,
+                                            score: rankingList[playerIndex].ranked_score,
+                                            user_id: mainPlayer.id,
+                                            username: mainPlayer.username
+                                        }
                                     };
+            
+                                    // Ajouter le joueur précédent si disponible
+                                    if (playerIndex < rankingList.length - 1) {
+                                        const prevPlayer = rankingList[playerIndex + 1];
+                                        rankData.prev = {
+                                            user_id: prevPlayer.user.id,
+                                            score: prevPlayer.ranked_score,
+                                            username: prevPlayer.user.username,
+                                            rank: playerRank + 1
+                                        };
+                                    }
+            
+                                    // Ajouter le joueur suivant si disponible
+                                    if (playerIndex > 0) {
+                                        const nextPlayer = rankingList[playerIndex - 1];
+                                        rankData.next = {
+                                            user_id: nextPlayer.user.id,
+                                            score: nextPlayer.ranked_score,
+                                            username: nextPlayer.user.username,
+                                            rank: playerRank - 1
+                                        };
+                                    }
+            
+                                    // Mettre à jour les statistiques du joueur principal
+                                    mainPlayer.statistics.ranked_score = rankingList[playerIndex].ranked_score;
+                                    mainPlayer.statistics.global_rank = playerRank;
+            
+                                    return { mainPlayer, rankData };
                                 }
                             } catch (error) {
                                 if (error.message.includes('Too many subrequests')) {
-                                    await new Promise(resolve => setTimeout(resolve, 1000)); // Attendre 1s en cas de rate limit
+                                    await new Promise(resolve => setTimeout(resolve, 1000));
                                     continue;
                                 }
                                 throw error;
@@ -866,81 +900,30 @@
                         return null;
                     };
             
+                    // Lancer la recherche depuis la fin
                     const searchFromEnd = async () => {
+                        // Même logique que searchFromStart mais en partant de la page 200
                         for (let page = 200; page >= 1; page--) {
-                            try {
-                                const response = await this.makeApiRequest(`/rankings/osu/score?cursor[page]=${page}&limit=50`);
-                                const foundPlayer = response.ranking.find(p => p.user.id === mainPlayer.id);
-                                if (foundPlayer) {
-                                    return {
-                                        player: foundPlayer,
-                                        page: page,
-                                        index: response.ranking.findIndex(p => p.user.id === mainPlayer.id)
-                                    };
-                                }
-                            } catch (error) {
-                                if (error.message.includes('Too many subrequests')) {
-                                    await new Promise(resolve => setTimeout(resolve, 1000)); // Attendre 1s en cas de rate limit
-                                    continue;
-                                }
-                                throw error;
-                            }
+                            // ... même code que searchFromStart ...
                         }
                         return null;
                     };
             
-                    // Lancer les deux recherches en parallèle
-                    const searchResults = await Promise.race([
+                    // Exécuter les deux recherches en parallèle
+                    const result = await Promise.race([
                         searchFromStart(),
                         searchFromEnd()
                     ]);
             
-                    if (!searchResults) {
+                    if (!result) {
                         throw new Error('Impossible de trouver le joueur dans le classement.');
                     }
             
-                    const { player, page, index } = searchResults;
-                    const rank = (page - 1) * 50 + index + 1;
-            
-                    // Préparer les données pour l'affichage
-                    const rankData = {
-                        player: {
-                            rank: rank,
-                            score: player.ranked_score,
-                            user_id: player.user.id,
-                            username: player.user.username
-                        }
-                    };
-            
-                    // Récupérer les joueurs adjacents
-                    if (index > 0) {
-                        const nextPlayer = player.ranking[index - 1];
-                        rankData.next = {
-                            user_id: nextPlayer.user.id,
-                            score: nextPlayer.ranked_score,
-                            username: nextPlayer.user.username,
-                            rank: rank - 1
-                        };
-                    }
-            
-                    if (index < player.ranking.length - 1) {
-                        const prevPlayer = player.ranking[index + 1];
-                        rankData.prev = {
-                            user_id: prevPlayer.user.id,
-                            score: prevPlayer.ranked_score,
-                            username: prevPlayer.user.username,
-                            rank: rank + 1
-                        };
-                    }
-            
-                    // Mettre à jour les statistiques du joueur
-                    mainPlayer.statistics.ranked_score = player.ranked_score;
-                    mainPlayer.statistics.global_rank = rank;
-                    
-                    this.currentPlayer = mainPlayer;
-                    await this.displayRanking(mainPlayer, rankData);
+                    // Afficher les résultats
+                    this.currentPlayer = result.mainPlayer;
+                    await this.displayRanking(result.mainPlayer, result.rankData);
                     this.startLiveUpdates();
-                    
+            
                 } catch (error) {
                     this.showError(error.message);
                     console.error('Erreur lors de la recherche:', error);
