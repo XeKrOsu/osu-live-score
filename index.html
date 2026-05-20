@@ -473,7 +473,6 @@
     </style>
 </head>
 <body>
-    <!-- Remplacer le contenu HTML existant -->
 <div class="container">
     <div class="header">
         <h1 class="title">osu! live scorer</h1>
@@ -584,14 +583,12 @@
             }
             
             initializeEventListeners() {
-                console.log('Initialisation des événements...');
                 const searchInput = document.getElementById('playerSearch');
                 const searchBtn = document.getElementById('searchBtn');
                 const clientIdInput = document.getElementById('clientId');
                 const clientSecretInput = document.getElementById('clientSecret');
                 const authorizeBtn = document.getElementById('authorizeBtn');
             
-                // Vérifier que tous les éléments sont trouvés
                 if (!searchInput || !searchBtn || !clientIdInput || !clientSecretInput || !authorizeBtn) {
                     console.error('Certains éléments HTML n\'ont pas été trouvés:', {
                         searchInput: !!searchInput,
@@ -604,14 +601,12 @@
                 }
                 
                 searchInput.addEventListener('keypress', (e) => {
-                    console.log('Touche pressée dans la recherche');
                     if (e.key === 'Enter' && this.isAuthenticated()) {
                         this.searchPlayer(e.target.value);
                     }
                 });
             
                 searchBtn.addEventListener('click', () => {
-                    console.log('Bouton de recherche cliqué');
                     if (this.isAuthenticated()) {
                         this.searchPlayer(searchInput.value);
                     } else {
@@ -620,29 +615,23 @@
                 });
             
                 clientIdInput.addEventListener('input', (e) => {
-                    console.log('Client ID modifié');
                     this.clientId = e.target.value;
                     this.saveCredentials();
                 });
             
                 clientSecretInput.addEventListener('input', (e) => {
-                    console.log('Client Secret modifié');
                     this.clientSecret = e.target.value;
                     this.saveCredentials();
                 });
             
                 authorizeBtn.addEventListener('click', () => {
-                    console.log('Bouton d\'autorisation cliqué');
                     this.validateCredentials();
                 });
-            
-                console.log('Événements initialisés avec succès');
             }
 
             initializeThemeToggle() {
                 const themeToggle = document.getElementById('themeToggle');
                 
-                // Charger le thème sauvegardé
                 const savedTheme = localStorage.getItem('theme') || 'light';
                 document.documentElement.setAttribute('data-theme', savedTheme);
                 
@@ -688,14 +677,12 @@
             }
 
             async validateCredentials() {
-                console.log('Début de la validation des credentials');
                 if (!this.clientId || !this.clientSecret) {
                     this.showAuthStatus('Veuillez entrer votre Client ID et Client Secret.', 'error');
                     return;
                 }
             
                 try {
-                    console.log('Préparation de la requête de token');
                     const response = await fetch(`${this.apiBase}/osu/oauth/token`, {
                         method: 'POST',
                         headers: {
@@ -710,15 +697,12 @@
                         })
                     });
             
-                    console.log('Réponse reçue:', response.status);
-            
                     if (!response.ok) {
                         const errorData = await response.json();
                         throw new Error(errorData.error || 'Erreur d\'authentification');
                     }
             
                     const tokenResponse = await response.json();
-                    console.log('Token reçu avec succès');
                     
                     this.accessToken = tokenResponse.access_token;
                     this.tokenExpiry = Date.now() + (tokenResponse.expires_in * 1000);
@@ -803,11 +787,6 @@
 
             isAuthenticated() {
                 const isValid = this.accessToken && this.tokenExpiry > Date.now();
-                console.log('État d\'authentification:', isValid, {
-                    hasToken: !!this.accessToken,
-                    tokenExpiry: this.tokenExpiry,
-                    now: Date.now()
-                });
                 return isValid;
             }
 
@@ -837,14 +816,12 @@
                 try {
                     const abortController = new AbortController();
             
-                    // Récupérer d'abord les données du joueur
                     const mainPlayer = await this.makeApiRequest(`/users/${encodeURIComponent(username)}/osu`);
                     
                     if (!mainPlayer || !mainPlayer.id) {
                         throw new Error('Joueur non trouvé ou données incomplètes.');
                     }
             
-                    // Recherche bidirectionnelle complète
                     const searchInRankings = async (direction, signal) => {
                         const isForward = direction === 'forward';
                         let page = isForward ? 1 : 200;
@@ -852,23 +829,19 @@
                         
                         while (isForward ? page <= endPage : page >= endPage) {
                             if (signal.aborted) {
-                                console.log(`🛑 Recherche ${direction} arrêtée car l'autre recherche a trouvé le joueur`);
                                 return null;
                             }
             
                             try {
-                                console.log(`${direction === 'forward' ? '⬆️' : '⬇️'} Recherche sur la page ${page}...`);
                                 const response = await this.makeApiRequest(`/rankings/osu/score?cursor[page]=${page}&limit=50`);
                                 
                                 if (!response || !response.ranking || !Array.isArray(response.ranking)) {
-                                    console.error('Format de réponse invalide:', response);
                                     continue;
                                 }
             
                                 const playerIndex = response.ranking.findIndex(p => p.user && p.user.id === mainPlayer.id);
                                 
                                 if (playerIndex !== -1) {
-                                    console.log(`✅ Joueur trouvé à la page ${page}, position ${playerIndex + 1}`);
                                     abortController.abort();
             
                                     const foundPlayer = response.ranking[playerIndex];
@@ -884,7 +857,6 @@
                                         }
                                     };
             
-                                    // Joueur précédent (rang supérieur/meilleur)
                                     if (playerIndex > 0) {
                                         const betterPlayer = response.ranking[playerIndex - 1];
                                         rankData.next = {
@@ -896,7 +868,6 @@
                                         };
                                     }
             
-                                    // Joueur suivant (rang inférieur/moins bon)
                                     if (playerIndex < response.ranking.length - 1) {
                                         const worsePlayer = response.ranking[playerIndex + 1];
                                         rankData.prev = {
@@ -915,13 +886,10 @@
                                 }
                             } catch (error) {
                                 if (signal.aborted) {
-                                    console.log(`🛑 Recherche ${direction} arrêtée car l'autre recherche a trouvé le joueur`);
                                     return null;
                                 }
             
-                                console.error(`❌ Erreur sur la page ${page}:`, error);
                                 if (error.message.includes('Too many subrequests')) {
-                                    console.log('⏳ Pause de 1 seconde pour respecter les limites de l\'API...');
                                     await new Promise(resolve => setTimeout(resolve, 1000));
                                     continue;
                                 }
@@ -932,17 +900,13 @@
                         return null;
                     };
             
-                    // Lancer les deux recherches en parallèle
-                    console.log('🔍 Démarrage de la recherche bidirectionnelle...');
                     const [resultFromStart, resultFromEnd] = await Promise.all([
                         searchInRankings('forward', abortController.signal),
                         searchInRankings('backward', abortController.signal)
                     ]).catch(error => {
                         if (error.name === 'AbortError') {
-                            console.log('🎯 Une des recherches a trouvé le joueur, l\'autre a été arrêtée');
                             return [null, null];
                         } else {
-                            console.error('❌ Erreur lors de la recherche parallèle:', error);
                             throw error;
                         }
                     });
@@ -953,7 +917,6 @@
                         throw new Error('Impossible de trouver le joueur dans le classement.');
                     }
             
-                    console.log('✨ Joueur trouvé, affichage des résultats...');
                     this.currentPlayer = result.mainPlayer;
                     await this.displayRanking(result.mainPlayer, result.rankData);
                     this.startLiveUpdates();
@@ -968,7 +931,6 @@
                 try {
                     const players = [];
                     
-                    // Joueur suivant (meilleur rang)
                     if (rankData.next) {
                         try {
                             const nextPlayerData = await this.makeApiRequest(`/users/${rankData.next.user_id}/osu`);
@@ -979,7 +941,7 @@
                                     ranked_score: rankData.next.score,
                                     global_rank: rankData.next.rank
                                 },
-                                is_online: await this.getPlayerStatus(rankData.next.user_id) // Ajout du statut
+                                is_online: await this.getPlayerStatus(rankData.next.user_id)
                             };
                             players.push(nextPlayer);
                         } catch (error) {
@@ -987,11 +949,9 @@
                         }
                     }
                     
-                    // Joueur principal
-                    mainPlayer.is_online = await this.getPlayerStatus(mainPlayer.id); // Ajout du statut
+                    mainPlayer.is_online = await this.getPlayerStatus(mainPlayer.id);
                     players.push(mainPlayer);
                     
-                    // Joueur précédent (moins bon rang)
                     if (rankData.prev) {
                         try {
                             const prevPlayerData = await this.makeApiRequest(`/users/${rankData.prev.user_id}/osu`);
@@ -1002,441 +962,153 @@
                                     ranked_score: rankData.prev.score,
                                     global_rank: rankData.prev.rank
                                 },
-                                is_online: await this.getPlayerStatus(rankData.prev.user_id) // Ajout du statut
+                                is_online: await this.getPlayerStatus(rankData.prev.user_id)
                             };
                             players.push(prevPlayer);
                         } catch (error) {
                             console.error('Erreur lors de la récupération du joueur précédent:', error);
                         }
                     }
-            
-                    // Mise à jour de l'affichage
-                    const displayElement = document.getElementById('rankingDisplay');
-                    displayElement.innerHTML = '';
                     
-                    let previousPlayer = null;
-                    for (let i = 0; i < players.length; i++) {
-                        const player = players[i];
-                        const playerCard = this.createPlayerCard(player);
-                        
-                        // Ajouter la différence de score
-                        if (previousPlayer) {
-                            const scoreDiff = document.createElement('div');
-                            const difference = previousPlayer.statistics.ranked_score - player.statistics.ranked_score;
-                            scoreDiff.className = 'score-difference';
-                            if (previousPlayer.statistics.global_rank < player.statistics.global_rank) {
-                                // Le joueur précédent est mieux classé
-                                scoreDiff.classList.add('negative');
-                                scoreDiff.textContent = `-${this.formatNumber(Math.abs(difference))}`;
-                            } else {
-                                // Le joueur précédent est moins bien classé
-                                scoreDiff.classList.add('positive');
-                                scoreDiff.textContent = `+${this.formatNumber(Math.abs(difference))}`;
-                            }
-                            displayElement.appendChild(scoreDiff);
-                        }
-                        
-                        displayElement.appendChild(playerCard);
-                        previousPlayer = player;
-                    }
-                    
+                    this.renderPlayers(players);
                 } catch (error) {
-                    console.error('Erreur lors de l\'affichage du classement:', error);
-                    this.showError('Erreur lors de l\'affichage du classement');
+                    console.error('Erreur lors du rendu du classement:', error);
+                    this.showError('Erreur lors du rendu du classement.');
                 }
             }
 
             async getPlayerStatus(userId) {
                 try {
-                    const response = await this.makeApiRequest(`/users/${userId}`);
+                    const response = await this.makeApiRequest(`/users/${userId}?key=statistics.global_rank`);
                     return response.is_online || false;
-                } catch (error) {
-                    console.error('Erreur lors de la récupération du statut:', error);
+                } catch {
                     return false;
                 }
             }
 
-            async getScoreRankData(userId) {
-                try {
-                    const response = await fetch(`${this.apiBase}/score/u/${userId}`);
-                    
-                    if (!response.ok) {
-                        throw new Error('Impossible de récupérer les données de score');
-                    }
-                    
-                    return await response.json();
-                } catch (error) {
-                    console.error('Erreur lors de la récupération des données de score:', error);
-                    throw error;
-                }
-            }
-
-            async createPlayerList(mainPlayer, rankingList, currentRank) {
-                const players = [];
-                try {
-                    // Si on est dans le top 3, adapter la logique
-                    if (currentRank <= 3) {
-                        for (let i = 1; i <= 4; i++) {
-                            if (i === currentRank) {
-                                players.push(mainPlayer);
-                            } else {
-                                const playerData = await this.makeApiRequest(`/users/${rankingList[i-1].user.id}/osu`);
-                                players.push(playerData);
-                            }
-                        }
-                    } 
-                    // Si on est dans les derniers rangs
-                    else if (currentRank >= 9998) {
-                        for (let i = 9997; i <= 10000; i++) {
-                            if (i === currentRank) {
-                                players.push(mainPlayer);
-                            } else {
-                                const playerData = await this.makeApiRequest(`/users/${rankingList[i-9997].user.id}/osu`);
-                                players.push(playerData);
-                            }
-                        }
-                    }
-                    // Cas normal
-                    else {
-                        for (let i = currentRank-2; i <= currentRank+1; i++) {
-                            if (i === currentRank) {
-                                players.push(mainPlayer);
-                            } else {
-                                const playerData = await this.makeApiRequest(`/users/${rankingList[i-1].user.id}/osu`);
-                                players.push(playerData);
-                            }
-                        }
-                    }
-                } catch (error) {
-                    console.error('Erreur lors de la récupération des joueurs:', error);
-                    players.push(
-                        this.createFallbackPlayer(Math.max(1, currentRank - 2)),
-                        this.createFallbackPlayer(Math.max(1, currentRank - 1)),
-                        mainPlayer,
-                        this.createFallbackPlayer(Math.min(currentRank + 1, 10000))
-                    );
-                }
+            renderPlayers(players) {
+                const rankingDisplay = document.getElementById('rankingDisplay');
+                rankingDisplay.innerHTML = '';
                 
-                return players;
+                players.forEach((player, index) => {
+                    const card = this.createPlayerCard(player, index === 1 ? 'main' : (index === 0 ? 'rank-above-1' : 'rank-below'));
+                    rankingDisplay.appendChild(card);
+                    
+                    if (index === 1 && players.length > 2) {
+                        const diff = Math.abs(players[0].statistics.ranked_score - players[2].statistics.ranked_score);
+                        const diffElement = document.createElement('div');
+                        diffElement.className = 'score-difference ' + (players[0].statistics.ranked_score > players[2].statistics.ranked_score ? 'positive' : 'negative');
+                        diffElement.textContent = `Écart: ${diff.toLocaleString()} points`;
+                        rankingDisplay.appendChild(diffElement);
+                    }
+                });
             }
 
-            createFallbackPlayer(rank) {
-                // Assurer que le rang est entre 1 et 10000
-                const safeRank = Math.min(Math.max(1, rank), 10000);
-                return {
-                    id: Math.floor(Math.random() * 10000000),
-                    username: `Joueur #${safeRank}`,
-                    avatar_url: null,
-                    country: { code: 'XX', name: 'Inconnu' },
-                    statistics: {
-                        ranked_score: Math.floor(Math.random() * 50000000000),
-                        global_rank: safeRank,
-                        pp: Math.floor(Math.random() * 10000),
-                        last_visit: new Date(Date.now() - Math.random() * 7200000).toISOString()
-                    }
-                };
-            }
-
-            async renderPlayerCards() {
-                try {
-                    const container = document.getElementById('rankingDisplay');
-                    if (!container) {
-                        console.error('Container not found');
-                        return;
-                    }
-                    container.innerHTML = '';
-            
-                    for (let i = 0; i < this.playerData.length; i++) {
-                        const player = this.playerData[i];
-                        try {
-                            const card = await this.createPlayerCard(player, i);
-                            container.appendChild(card);
-            
-                            if (i < this.playerData.length - 1) {
-                                const diff = this.createScoreDifference(player, this.playerData[i + 1]);
-                                container.appendChild(diff);
-                            }
-                        } catch (error) {
-                            console.error('Error creating player card:', error);
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error rendering player cards:', error);
-                    this.showError('Une erreur est survenue lors de l\'affichage des joueurs');
-                }
-            }
-
-            createPlayerCard(player) {
+            createPlayerCard(player, rankClass) {
                 const card = document.createElement('div');
-                card.className = 'player-card';
+                card.className = `player-card ${rankClass}`;
                 
-                // Ajouter les classes pour le positionnement
-                if (player.id === this.currentPlayer.id) {
-                    card.classList.add('main');
-                } else if (player.statistics.global_rank < this.currentPlayer.statistics.global_rank) {
-                    card.classList.add('rank-above-1');
-                } else {
-                    card.classList.add('rank-below');
-                }
+                const avatarContainer = document.createElement('div');
+                avatarContainer.className = 'avatar-container';
                 
                 const avatar = document.createElement('div');
-                avatar.className = 'avatar-container';
+                avatar.className = 'player-avatar';
                 
-                const avatarImg = document.createElement('div');
-                avatarImg.className = 'player-avatar';
                 if (player.avatar_url) {
                     const img = document.createElement('img');
                     img.src = player.avatar_url;
-                    img.alt = player.username;
-                    avatarImg.appendChild(img);
+                    avatar.appendChild(img);
                 }
                 
-                const statusDot = document.createElement('div');
-                statusDot.className = `status-indicator ${player.is_online ? 'status-online' : 'status-offline'}`;
-                avatar.appendChild(avatarImg);
-                avatar.appendChild(statusDot);
+                const statusIndicator = document.createElement('div');
+                statusIndicator.className = `status-indicator ${player.is_online ? 'status-online' : 'status-offline'}`;
                 
-                const info = document.createElement('div');
-                info.className = 'player-info';
+                avatarContainer.appendChild(avatar);
+                avatarContainer.appendChild(statusIndicator);
                 
-                const name = document.createElement('div');
-                name.className = 'player-name';
-                if (player.country && player.country.code) {
-                    const flag = document.createElement('img');
-                    flag.src = `https://osu.ppy.sh/images/flags/${player.country.code}.png`;
-                    flag.className = 'country-flag';
-                    name.appendChild(flag);
-                }
-                name.appendChild(document.createTextNode(player.username));
+                const playerInfo = document.createElement('div');
+                playerInfo.className = 'player-info';
                 
-                const score = document.createElement('div');
-                score.className = 'player-score';
-                score.textContent = `Ranked Score: ${this.formatNumber(player.statistics.ranked_score)}`;
+                const nameElement = document.createElement('div');
+                nameElement.className = 'player-name';
+                nameElement.textContent = player.username;
                 
-                const pp = document.createElement('div');
-                pp.className = 'player-pp';
-                pp.textContent = `${player.statistics.pp.toFixed(2)}pp`;
+                const scoreElement = document.createElement('div');
+                scoreElement.className = 'player-score';
+                scoreElement.textContent = `Ranked Score: ${(player.statistics?.ranked_score || 0).toLocaleString()}`;
                 
-                info.appendChild(name);
-                info.appendChild(score);
-                info.appendChild(pp);
+                playerInfo.appendChild(nameElement);
+                playerInfo.appendChild(scoreElement);
                 
-                const rank = document.createElement('div');
-                rank.className = 'player-rank';
-                rank.textContent = `#${player.statistics.global_rank}`;
+                const rankElement = document.createElement('div');
+                rankElement.className = 'player-rank';
+                rankElement.textContent = `#${player.statistics?.global_rank || 'N/A'}`;
                 
-                card.appendChild(avatar);
-                card.appendChild(info);
-                card.appendChild(rank);
+                card.appendChild(avatarContainer);
+                card.appendChild(playerInfo);
+                card.appendChild(rankElement);
                 
                 return card;
             }
 
-            createScoreDifference(currentPlayer, otherPlayer) {
-                try {
-                    const diff = document.createElement('div');
-                    const scoreDiff = currentPlayer.ranked_score - otherPlayer.ranked_score;
-                    
-                    // Si le joueur otherPlayer a un rang plus petit (meilleur), la différence doit être négative
-                    if (otherPlayer.global_rank < currentPlayer.global_rank) {
-                        diff.className = 'score-difference negative';
-                        diff.textContent = `-${this.formatNumber(Math.abs(scoreDiff))}`;
-                    } 
-                    // Si le joueur otherPlayer a un rang plus grand (moins bon), la différence doit être positive
-                    else {
-                        diff.className = 'score-difference positive';
-                        diff.textContent = `+${this.formatNumber(Math.abs(scoreDiff))}`;
-                    }
-                    
-                    return diff;
-                } catch (error) {
-                    console.error('Error creating score difference:', error);
-                    return document.createElement('div');
-                }
-            }
-
-            async isPlayerOnline(userId) {
-                if (!userId) return false;
-                
-                try {
-                    const response = await this.makeApiRequest(`/users/${userId}/is_online`);
-                    return response?.is_online || false;
-                } catch (error) {
-                    console.error('Error checking online status:', error);
-                    return false; // En cas d'erreur, on considère le joueur hors ligne
-                }
-            }
-
-            getLastActivityText(lastVisit) {
-                if (!lastVisit) return 'Activité inconnue';
-                
-                const lastVisitTime = new Date(lastVisit);
-                const now = new Date();
-                const diffMinutes = Math.floor((now - lastVisitTime) / (1000 * 60));
-                const diffHours = Math.floor(diffMinutes / 60);
-                const diffDays = Math.floor(diffHours / 24);
-                
-                if (diffMinutes <= 1) return '🟢 En ligne maintenant';
-                if (diffMinutes <= 10) return `🟢 Actif il y a ${diffMinutes} min`;
-                if (diffMinutes <= 60) return `🟡 Vu il y a ${diffMinutes} min`;
-                if (diffHours <= 24) return `🟠 Vu il y a ${diffHours}h`;
-                if (diffDays <= 7) return `🔴 Vu il y a ${diffDays}j`;
-                return '🔴 Inactif depuis longtemps';
-            }
-
-            startLiveUpdates() {
-                if (this.updateInterval) {
-                    clearInterval(this.updateInterval);
-                }
-        
-                this.updateInterval = setInterval(async () => {
-                    if (this.currentPlayer && this.isAuthenticated()) {
-                        try {
-                            await this.updatePlayerData();
-                        } catch (error) {
-                            console.error('Erreur lors de la mise à jour:', error);
-                            if (error.message.includes('Session expirée')) {
-                                this.showAuthStatus('Session expirée. Veuillez vous reconnecter.', 'error');
-                                this.stopUpdates();
-                            }
-                        }
-                    }
-                }, this.updateIntervalDuration);
-            }
-
             async updatePlayerData() {
                 try {
-                    // Récupérer les nouvelles données du joueur
-                    const updatedPlayer = await this.makeApiRequest(`/users/${this.currentPlayer.id}/osu`);
+                    const updated = await this.makeApiRequest(`/users/${this.currentPlayer.id}/osu`);
                     
-                    // Récupérer les nouvelles données de classement
-                    const rankData = await fetch(`${this.apiBase}/osu/rankings/search?username=${encodeURIComponent(updatedPlayer.username)}`, {
-                        headers: {
-                            'Authorization': `Bearer ${this.accessToken}`,
-                            'Accept': 'application/json'
+                    if (updated && updated.statistics) {
+                        const scoreGain = updated.statistics.ranked_score - (this.currentPlayer.statistics?.ranked_score || 0);
+                        
+                        if (scoreGain > 0) {
+                            this.showScoreAnimation(scoreGain);
+                            this.lastScores.set(this.currentPlayer.id, updated.statistics.ranked_score);
                         }
-                    }).then(res => res.json());
-        
-                    if (rankData.error) {
-                        throw new Error(rankData.error);
-                    }
-        
-                    const oldScore = this.currentPlayer.statistics.ranked_score;
-                    const newScore = rankData.player.score;
-                    
-                    updatedPlayer.statistics.ranked_score = newScore;
-                    updatedPlayer.statistics.global_rank = rankData.player.rank;
-                    
-                    if (newScore !== oldScore) {
-                        await this.displayRanking(updatedPlayer, rankData);
-                        this.showScoreAnimation(1, newScore - oldScore);
+                        
+                        this.currentPlayer = updated;
                     }
                 } catch (error) {
-                    console.error('Erreur lors de la mise à jour des données:', error);
-                    throw error;
+                    console.error('Erreur lors de la mise à jour des données du joueur:', error);
                 }
             }
 
-            showScoreAnimation(playerIndex, scoreGain) {
-                setTimeout(() => {
-                    const cards = document.querySelectorAll('.player-card');
-                    if (cards[playerIndex]) {
-                        const animation = document.createElement('div');
-                        animation.className = 'score-animation';
-                        animation.textContent = `+${this.formatNumber(scoreGain)}`;
-                        
-                        cards[playerIndex].style.position = 'relative';
-                        cards[playerIndex].appendChild(animation);
-                        
-                        setTimeout(() => {
-                            if (animation.parentNode) {
-                                animation.remove();
-                            }
-                        }, 3000);
-                    }
-                }, 500);
-            }
-
-            formatNumber(num) {
-                if (typeof num !== 'number') return '0';
-                return num.toLocaleString('fr-FR');
+            showScoreAnimation(scoreGain) {
+                const element = document.querySelector('.player-card.main');
+                if (element) {
+                    const animation = document.createElement('div');
+                    animation.className = 'score-animation';
+                    animation.textContent = `+${scoreGain.toLocaleString()}`;
+                    element.appendChild(animation);
+                    
+                    setTimeout(() => animation.remove(), 3000);
+                }
             }
 
             showLoading(message) {
-                try {
-                    const container = document.getElementById('rankingDisplay');
-                    if (!container) return;
-                    
-                    const loadingDiv = document.createElement('div');
-                    loadingDiv.className = 'loading';
-                    
-                    const spinner = document.createElement('div');
-                    spinner.className = 'loading-spinner';
-                    
-                    const messageDiv = document.createElement('div');
-                    messageDiv.textContent = message;
-                    
-                    loadingDiv.appendChild(spinner);
-                    loadingDiv.appendChild(messageDiv);
-                    
-                    container.innerHTML = '';
-                    container.appendChild(loadingDiv);
-                } catch (error) {
-                    console.error('Error showing loading message:', error);
-                }
+                const rankingDisplay = document.getElementById('rankingDisplay');
+                rankingDisplay.innerHTML = `<div class="loading"><div class="loading-spinner"></div><p>${message}</p></div>`;
             }
 
             showError(message) {
-                try {
-                    const container = document.getElementById('rankingDisplay');
-                    if (!container) return;
-                    
-                    const errorDiv = document.createElement('div');
-                    errorDiv.className = 'error-message';
-                    errorDiv.textContent = `❌ ${message}`; // Utiliser textContent au lieu de innerHTML
-                    container.innerHTML = ''; // Vider le container avant d'ajouter l'erreur
-                    container.appendChild(errorDiv);
-                } catch (error) {
-                    console.error('Error showing error message:', error);
-                }
+                const rankingDisplay = document.getElementById('rankingDisplay');
+                rankingDisplay.innerHTML = `<div class="error-message">❌ ${message}</div>`;
             }
 
-            showAuthStatus(message, type = 'info') {
-                const statusDiv = document.getElementById('authStatus');
-                if (!statusDiv) return;
-            
-                statusDiv.className = `auth-status ${type}`;
-                statusDiv.textContent = message;
-                statusDiv.classList.remove('hidden');
-            
-                if (type === 'success') {
-                    setTimeout(() => {
-                        statusDiv.classList.add('hidden');
-                    }, 3000);
-                }
+            showAuthStatus(message, type) {
+                const authStatus = document.getElementById('authStatus');
+                authStatus.textContent = message;
+                authStatus.className = `auth-status ${type}`;
+                authStatus.classList.remove('hidden');
             }
 
             stopUpdates() {
                 if (this.updateInterval) {
                     clearInterval(this.updateInterval);
-                    this.updateInterval = null;
                 }
             }
-
         }
 
-        // Initialiser l'application
-        const tracker = new OsuScoreTracker();
-
-        // Nettoyer les intervalles quand la page se ferme
-        window.addEventListener('beforeunload', () => {
-            tracker.stopUpdates();
+        window.addEventListener('load', () => {
+            new OsuScoreTracker();
         });
-
-        // Mettre à jour l'état du bouton de recherche périodiquement
-        setInterval(() => {
-            tracker.updateSearchButtonState();
-        }, 60000); // Chaque minute
     </script>
 </body>
 </html>
