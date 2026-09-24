@@ -831,156 +831,158 @@
                 }
             }
 
+            async resolvePlayerRanking(mainPlayer) {
+                const abortController = new AbortController();
+
+                const searchInRankings = async (direction, signal) => {
+                    const isForward = direction === 'forward';
+                    let page = isForward ? 1 : 200;
+                    const endPage = isForward ? 200 : 1;
+
+                    while (isForward ? page <= endPage : page >= endPage) {
+                        if (signal.aborted) {
+                            return null;
+                        }
+
+                        try {
+                            const response = await this.makeApiRequest(`/rankings/osu/score?cursor[page]=${page}&limit=50`);
+
+                            if (!response || !response.ranking || !Array.isArray(response.ranking)) {
+                                continue;
+                            }
+
+                            const playerIndex = response.ranking.findIndex(p => p.user && p.user.id === mainPlayer.id);
+
+                            if (playerIndex !== -1) {
+                                abortController.abort();
+
+                                const foundPlayer = response.ranking[playerIndex];
+                                const playerRank = (page - 1) * 50 + playerIndex + 1;
+
+                                const rankData = {
+                                    player: {
+                                        rank: playerRank,
+                                        score: foundPlayer.ranked_score,
+                                        user_id: mainPlayer.id,
+                                        username: mainPlayer.username,
+                                        global_rank: playerRank
+                                    }
+                                };
+
+                                if (playerIndex > 0) {
+                                    const betterPlayer = response.ranking[playerIndex - 1];
+                                    rankData.next = {
+                                        user_id: betterPlayer.user.id,
+                                        score: betterPlayer.ranked_score,
+                                        username: betterPlayer.user.username,
+                                        rank: playerRank - 1,
+                                        global_rank: playerRank - 1
+                                    };
+                                } else if (page > 1) {
+                                    try {
+                                        const prevResponse = await this.makeApiRequest(`/rankings/osu/score?cursor[page]=${page - 1}&limit=50`);
+                                        if (prevResponse && prevResponse.ranking && prevResponse.ranking.length > 0) {
+                                            const betterPlayer = prevResponse.ranking[prevResponse.ranking.length - 1];
+                                            rankData.next = {
+                                                user_id: betterPlayer.user.id,
+                                                score: betterPlayer.ranked_score,
+                                                username: betterPlayer.user.username,
+                                                rank: playerRank - 1,
+                                                global_rank: playerRank - 1
+                                            };
+                                        }
+                                    } catch (e) {
+                                        console.warn('Could not fetch previous page:', e);
+                                    }
+                                }
+
+                                if (playerIndex < response.ranking.length - 1) {
+                                    const worsePlayer = response.ranking[playerIndex + 1];
+                                    rankData.prev = {
+                                        user_id: worsePlayer.user.id,
+                                        score: worsePlayer.ranked_score,
+                                        username: worsePlayer.user.username,
+                                        rank: playerRank + 1,
+                                        global_rank: playerRank + 1
+                                    };
+                                } else if (page < 200) {
+                                    try {
+                                        const nextResponse = await this.makeApiRequest(`/rankings/osu/score?cursor[page]=${page + 1}&limit=50`);
+                                        if (nextResponse && nextResponse.ranking && nextResponse.ranking.length > 0) {
+                                            const worsePlayer = nextResponse.ranking[0];
+                                            rankData.prev = {
+                                                user_id: worsePlayer.user.id,
+                                                score: worsePlayer.ranked_score,
+                                                username: worsePlayer.user.username,
+                                                rank: playerRank + 1,
+                                                global_rank: playerRank + 1
+                                            };
+                                        }
+                                    } catch (e) {
+                                        console.warn('Could not fetch next page:', e);
+                                    }
+                                }
+
+                                mainPlayer.statistics.ranked_score = foundPlayer.ranked_score;
+                                mainPlayer.statistics.score_rank = playerRank;
+                                mainPlayer.statistics.ranked_score_rank = playerRank;
+
+                                return { mainPlayer, rankData };
+                            }
+                        } catch (error) {
+                            if (signal.aborted) {
+                                return null;
+                            }
+
+                            if (error.message.includes('Too many subrequests')) {
+                                await new Promise(resolve => setTimeout(resolve, 1000));
+                                continue;
+                            }
+                            throw error;
+                        }
+                        page += isForward ? 1 : -1;
+                    }
+                    return null;
+                };
+
+                const [resultFromStart, resultFromEnd] = await Promise.all([
+                    searchInRankings('forward', abortController.signal),
+                    searchInRankings('backward', abortController.signal)
+                ]).catch(error => {
+                    if (error.name === 'AbortError') {
+                        return [null, null];
+                    }
+                    throw error;
+                });
+
+                return resultFromStart || resultFromEnd || null;
+            }
+
             async searchPlayer(username) {
                 if (!username.trim()) {
                     this.showError('Please enter a player name.');
                     return;
                 }
-                
+
                 this.showLoading('Searching...');
-                
+
                 try {
-                    const abortController = new AbortController();
-            
                     const mainPlayer = await this.makeApiRequest(`/users/${encodeURIComponent(username)}/osu`);
-                    
+
                     if (!mainPlayer || !mainPlayer.id) {
                         throw new Error('Player not found or incomplete data.');
                     }
-            
-                    const searchInRankings = async (direction, signal) => {
-                        const isForward = direction === 'forward';
-                        let page = isForward ? 1 : 200;
-                        const endPage = isForward ? 200 : 1;
-                        
-                        while (isForward ? page <= endPage : page >= endPage) {
-                            if (signal.aborted) {
-                                return null;
-                            }
-            
-                            try {
-                                const response = await this.makeApiRequest(`/rankings/osu/score?cursor[page]=${page}&limit=50`);
-                                
-                                if (!response || !response.ranking || !Array.isArray(response.ranking)) {
-                                    continue;
-                                }
-            
-                                const playerIndex = response.ranking.findIndex(p => p.user && p.user.id === mainPlayer.id);
-                                
-                                if (playerIndex !== -1) {
-                                    abortController.abort();
-            
-                                    const foundPlayer = response.ranking[playerIndex];
-                                    const playerRank = (page - 1) * 50 + playerIndex + 1;
-            
-                                    const rankData = {
-                                        player: {
-                                            rank: playerRank,
-                                            score: foundPlayer.ranked_score,
-                                            user_id: mainPlayer.id,
-                                            username: mainPlayer.username,
-                                            global_rank: playerRank
-                                        }
-                                    };
-            
-                                    if (playerIndex > 0) {
-                                        const betterPlayer = response.ranking[playerIndex - 1];
-                                        rankData.next = {
-                                            user_id: betterPlayer.user.id,
-                                            score: betterPlayer.ranked_score,
-                                            username: betterPlayer.user.username,
-                                            rank: playerRank - 1,
-                                            global_rank: playerRank - 1
-                                        };
-                                    } else if (page > 1) {
-                                        // Fetch from previous page if at boundary
-                                        try {
-                                            const prevResponse = await this.makeApiRequest(`/rankings/osu/score?cursor[page]=${page - 1}&limit=50`);
-                                            if (prevResponse && prevResponse.ranking && prevResponse.ranking.length > 0) {
-                                                const betterPlayer = prevResponse.ranking[prevResponse.ranking.length - 1];
-                                                rankData.next = {
-                                                    user_id: betterPlayer.user.id,
-                                                    score: betterPlayer.ranked_score,
-                                                    username: betterPlayer.user.username,
-                                                    rank: playerRank - 1,
-                                                    global_rank: playerRank - 1
-                                                };
-                                            }
-                                        } catch (e) {
-                                            console.warn('Could not fetch previous page:', e);
-                                        }
-                                    }
-            
-                                    if (playerIndex < response.ranking.length - 1) {
-                                        const worsePlayer = response.ranking[playerIndex + 1];
-                                        rankData.prev = {
-                                            user_id: worsePlayer.user.id,
-                                            score: worsePlayer.ranked_score,
-                                            username: worsePlayer.user.username,
-                                            rank: playerRank + 1,
-                                            global_rank: playerRank + 1
-                                        };
-                                    } else if (page < 200) {
-                                        // Fetch from next page if at boundary
-                                        try {
-                                            const nextResponse = await this.makeApiRequest(`/rankings/osu/score?cursor[page]=${page + 1}&limit=50`);
-                                            if (nextResponse && nextResponse.ranking && nextResponse.ranking.length > 0) {
-                                                const worsePlayer = nextResponse.ranking[0];
-                                                rankData.prev = {
-                                                    user_id: worsePlayer.user.id,
-                                                    score: worsePlayer.ranked_score,
-                                                    username: worsePlayer.user.username,
-                                                    rank: playerRank + 1,
-                                                    global_rank: playerRank + 1
-                                                };
-                                            }
-                                        } catch (e) {
-                                            console.warn('Could not fetch next page:', e);
-                                        }
-                                    }
-            
-                                    mainPlayer.statistics.ranked_score = foundPlayer.ranked_score;
-                                    mainPlayer.statistics.global_rank = playerRank;
-            
-                                    return { mainPlayer, rankData };
-                                }
-                            } catch (error) {
-                                if (signal.aborted) {
-                                    return null;
-                                }
-            
-                                if (error.message.includes('Too many subrequests')) {
-                                    await new Promise(resolve => setTimeout(resolve, 1000));
-                                    continue;
-                                }
-                                throw error;
-                            }
-                            page += isForward ? 1 : -1;
-                        }
-                        return null;
-                    };
-            
-                    const [resultFromStart, resultFromEnd] = await Promise.all([
-                        searchInRankings('forward', abortController.signal),
-                        searchInRankings('backward', abortController.signal)
-                    ]).catch(error => {
-                        if (error.name === 'AbortError') {
-                            return [null, null];
-                        } else {
-                            throw error;
-                        }
-                    });
-            
-                    const result = resultFromStart || resultFromEnd;
-            
+
+                    const result = await this.resolvePlayerRanking(mainPlayer);
+
                     if (!result) {
                         throw new Error('Could not find player in rankings.');
                     }
-            
+
                     this.currentPlayer = result.mainPlayer;
                     await this.displayRanking(result.mainPlayer, result.rankData);
                     this.startLiveUpdates();
-            
+
                 } catch (error) {
                     this.showError(error.message);
                     console.error('Search error:', error);
@@ -999,7 +1001,8 @@
                                 statistics: {
                                     ...nextPlayerData.statistics,
                                     ranked_score: rankData.next.score,
-                                    global_rank: rankData.next.rank
+                                    score_rank: rankData.next.rank,
+                                    ranked_score_rank: rankData.next.rank
                                 },
                                 is_online: await this.getPlayerStatus(rankData.next.user_id)
                             };
@@ -1020,7 +1023,8 @@
                                 statistics: {
                                     ...prevPlayerData.statistics,
                                     ranked_score: rankData.prev.score,
-                                    global_rank: rankData.prev.rank
+                                    score_rank: rankData.prev.rank,
+                                    ranked_score_rank: rankData.prev.rank
                                 },
                                 is_online: await this.getPlayerStatus(rankData.prev.user_id)
                             };
@@ -1053,7 +1057,10 @@
                         ...updatedPlayer,
                         statistics: {
                             ...player.statistics,
-                            ...updatedPlayer.statistics
+                            ...updatedPlayer.statistics,
+                            ranked_score: updatedPlayer.statistics.ranked_score ?? player.statistics.ranked_score,
+                            score_rank: updatedPlayer.statistics.score_rank ?? player.statistics.score_rank ?? player.statistics.ranked_score_rank ?? player.statistics.global_rank,
+                            ranked_score_rank: updatedPlayer.statistics.ranked_score_rank ?? updatedPlayer.statistics.score_rank ?? player.statistics.ranked_score_rank ?? player.statistics.score_rank ?? player.statistics.global_rank
                         }
                     };
                 });
@@ -1095,6 +1102,7 @@
                 
                 const statusClass = player.is_online ? 'status-online' : 'status-offline';
                 const statusTitle = player.is_online ? 'Online' : 'Offline';
+                const displayRank = player.statistics.score_rank ?? player.statistics.ranked_score_rank ?? player.statistics.global_rank ?? 'N/A';
                 
                 card.innerHTML = `
                     <div class="avatar-container">
@@ -1107,7 +1115,7 @@
                         <div class="player-name">${player.username}</div>
                         <div class="player-score">Ranked Score: ${this.formatNumber(player.statistics.ranked_score)}</div>
                     </div>
-                    <div class="player-rank">#${player.statistics.global_rank}</div>
+                    <div class="player-rank">#${displayRank}</div>
                 `;
                 
                 return card;
@@ -1122,11 +1130,11 @@
                     const updated = await this.makeApiRequest(`/users/${this.currentPlayer.id}/osu`);
                     const previousRankedScore = this.currentPlayer.statistics.ranked_score;
                     const newRankedScore = updated.statistics.ranked_score;
-                    
+
                     if (newRankedScore !== previousRankedScore) {
                         const diff = newRankedScore - previousRankedScore;
                         const card = document.querySelector('.player-card.main');
-                        
+
                         if (card && diff > 0) {
                             const animation = document.createElement('div');
                             animation.className = 'score-animation';
@@ -1136,16 +1144,25 @@
                         }
                     }
 
-                    this.currentPlayer = {
+                    const refreshedPlayer = {
                         ...this.currentPlayer,
                         ...updated,
                         statistics: {
                             ...this.currentPlayer.statistics,
-                            ...updated.statistics
+                            ...updated.statistics,
+                            ranked_score: updated.statistics.ranked_score,
+                            score_rank: this.currentPlayer.statistics.score_rank ?? this.currentPlayer.statistics.ranked_score_rank ?? this.currentPlayer.statistics.global_rank,
+                            ranked_score_rank: this.currentPlayer.statistics.ranked_score_rank ?? this.currentPlayer.statistics.score_rank ?? this.currentPlayer.statistics.global_rank
                         }
                     };
 
-                    if (this.displayedPlayers.length) {
+                    this.currentPlayer = refreshedPlayer;
+
+                    const rankingResult = await this.resolvePlayerRanking(refreshedPlayer);
+                    if (rankingResult) {
+                        this.currentPlayer = rankingResult.mainPlayer;
+                        await this.displayRanking(rankingResult.mainPlayer, rankingResult.rankData);
+                    } else if (this.displayedPlayers.length) {
                         this.syncDisplayedPlayers(this.currentPlayer);
                     }
                 } catch (error) {
