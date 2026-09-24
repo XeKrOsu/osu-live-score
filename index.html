@@ -590,6 +590,7 @@
                 this.tokenExpiry = 0;
                 this.currentPlayer = null;
                 this.playerData = [];
+                this.displayedPlayers = [];
                 this.updateInterval = null;
                 this.updateIntervalDuration = 30000;
                 this.lastScores = new Map();
@@ -1029,11 +1030,35 @@
                         }
                     }
                     
+                    this.displayedPlayers = players;
                     this.renderPlayers(players);
                 } catch (error) {
                     console.error('Error rendering ranking:', error);
                     this.showError('Error rendering ranking.');
                 }
+            }
+
+            syncDisplayedPlayers(updatedPlayer) {
+                if (!this.displayedPlayers.length) {
+                    return;
+                }
+
+                this.displayedPlayers = this.displayedPlayers.map((player) => {
+                    if (player.id !== updatedPlayer.id) {
+                        return player;
+                    }
+
+                    return {
+                        ...player,
+                        ...updatedPlayer,
+                        statistics: {
+                            ...player.statistics,
+                            ...updatedPlayer.statistics
+                        }
+                    };
+                });
+
+                this.renderPlayers(this.displayedPlayers);
             }
 
             async getPlayerStatus(userId) {
@@ -1095,9 +1120,11 @@
             async updatePlayerData() {
                 try {
                     const updated = await this.makeApiRequest(`/users/${this.currentPlayer.id}/osu`);
+                    const previousRankedScore = this.currentPlayer.statistics.ranked_score;
+                    const newRankedScore = updated.statistics.ranked_score;
                     
-                    if (updated.statistics.ranked_score !== this.currentPlayer.statistics.ranked_score) {
-                        const diff = updated.statistics.ranked_score - this.currentPlayer.statistics.ranked_score;
+                    if (newRankedScore !== previousRankedScore) {
+                        const diff = newRankedScore - previousRankedScore;
                         const card = document.querySelector('.player-card.main');
                         
                         if (card && diff > 0) {
@@ -1108,8 +1135,19 @@
                             setTimeout(() => animation.remove(), 3000);
                         }
                     }
-                    
-                    this.currentPlayer = updated;
+
+                    this.currentPlayer = {
+                        ...this.currentPlayer,
+                        ...updated,
+                        statistics: {
+                            ...this.currentPlayer.statistics,
+                            ...updated.statistics
+                        }
+                    };
+
+                    if (this.displayedPlayers.length) {
+                        this.syncDisplayedPlayers(this.currentPlayer);
+                    }
                 } catch (error) {
                     console.error('Error updating player data:', error);
                 }

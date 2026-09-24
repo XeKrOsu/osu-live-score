@@ -330,8 +330,38 @@
         .player-name-large {
             font-size: 18px;
             font-weight: 700;
-            margin-bottom: 10px;
+            margin-bottom: 14px;
             word-break: break-word;
+        }
+
+        .hero-stat {
+            margin: 0 0 14px;
+            padding: 18px 14px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(255, 105, 180, 0.18), rgba(255, 20, 147, 0.08));
+            border: 1px solid rgba(255, 105, 180, 0.28);
+        }
+
+        .hero-stat .stat-label {
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            opacity: 0.8;
+        }
+
+        .hero-stat .stat-value {
+            font-size: clamp(1.5rem, 2vw, 2rem);
+            color: #ff69b4;
+            line-height: 1.2;
+            word-break: break-word;
+        }
+
+        .meta-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 12px;
         }
 
         .stat-group {
@@ -356,22 +386,26 @@
         }
 
         .rank-badge {
-            display: inline-block;
-            background: linear-gradient(135deg, #ff69b4, #ff1493);
-            color: white;
-            padding: 8px 12px;
-            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 105, 180, 0.12);
+            color: #ff69b4;
+            padding: 7px 10px;
+            border-radius: 999px;
             font-weight: 700;
-            margin: 10px 0;
+            border: 1px solid rgba(255, 105, 180, 0.22);
+            font-size: 12px;
         }
 
         .status-badge {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
             padding: 6px 12px;
             border-radius: 20px;
             font-size: 12px;
             font-weight: 600;
-            margin-top: 8px;
+            margin-top: 0;
         }
 
         .status-badge.online {
@@ -798,10 +832,15 @@
                         <div class="status-indicator-large ${statusClass}" title="${statusTitle}"></div>
                     </div>
                     <div class="player-name-large">${player.username}</div>
-                    <div class="rank-badge">#${globalRank}</div>
-                    <div class="stat-group">
+                    <div class="hero-stat">
                         <div class="stat-label">Ranked Score</div>
                         <div class="stat-value">${rankedScore}</div>
+                    </div>
+                    <div class="meta-row">
+                        <div class="rank-badge">#${globalRank}</div>
+                        <div class="status-badge ${statusClass.replace('status-', '')}">
+                            <i class="fas fa-circle"></i> ${statusText}
+                        </div>
                     </div>
                     <div class="stat-group">
                         <div class="stat-label">Performance Points</div>
@@ -810,9 +849,6 @@
                     <div class="stat-group">
                         <div class="stat-label">Play Count</div>
                         <div class="stat-value">${this.formatNumber(player.statistics.play_count || 0)}</div>
-                    </div>
-                    <div class="status-badge ${statusClass.replace('status-', '')}">
-                        <i class="fas fa-circle"></i> ${statusText}
                     </div>
                 `;
 
